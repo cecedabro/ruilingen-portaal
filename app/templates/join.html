@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Meedoen · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div class="form narrow">
+{% if valid %}
+  <form method="post" class="field">
+    <label for="name">Hoe heet je?</label>
+    {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+    <div class="copyrow">
+      <input id="name" name="name" required minlength="2" maxlength="60" autocomplete="name" placeholder="Voor- en achternaam" value="{{ name }}" autofocus>
+      <button class="btn primary" type="submit">Meedoen</button>
+    </div>
+  </form>
+  <p class="meta">Je blijft ingelogd op dit apparaat. Geen e-mail of wachtwoord nodig.</p>
+{% else %}
+  <h2>Deze link werkt niet meer</h2>
+  <p>Vraag de nieuwe link in de groepsapp.</p>
+{% endif %}
+</div>
+{% endblock %}

@@ -1,13 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Inloggen · {{ settings.app_name }}{% endblock %}
 {% block content %}
-<form class="form narrow" method="post" action="/login">
-  <h2>Inloggen</h2>
-  <p class="meta">Vul je e-mailadres in. Je krijgt een link waarmee je inlogt, zonder wachtwoord.</p>
-  <input type="hidden" name="next" value="{{ next }}">
-  <div class="field"><label for="email">E-mailadres</label>
-    <input type="email" id="email" name="email" required autocomplete="email" autofocus></div>
-  <div class="actions"><button class="btn primary" type="submit">Stuur mij een link</button></div>
-  <p class="meta">Alleen collega's die zijn uitgenodigd kunnen inloggen. Nog niet uitgenodigd? Vraag het een beheerder.</p>
-</form>
+<div class="form narrow">
+  <h2>Meedoen</h2>
+  <p>Open de link uit de groepsapp.</p>
+  {% if settings.mail_enabled %}
+  <form method="post" action="/login" class="field">
+    <label for="email">Of log in met je e-mailadres</label>
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="copyrow">
+      <input type="email" id="email" name="email" required autocomplete="email" placeholder="naam@voorbeeld.nl">
+      <button class="btn primary" type="submit">Stuur link</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
 {% endblock %}

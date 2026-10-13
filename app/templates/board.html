@@ -3,15 +3,10 @@
 {% block title %}{{ "Aangeboden" if kind == "offer" else "Gezocht" }} · {{ settings.app_name }}{% endblock %}
 {% block content %}
 {% set path = "/aangeboden" if kind == "offer" else "/gezocht" %}
-<p class="intro">
-  {% if kind == "offer" %}Diensten die collega's willen weggeven, oudste eerst. Je mag elke dienst kiezen, niet alleen de bovenste.
-  {% else %}Collega's die een dienst zoeken, oudste eerst. Heb je er een die past? Bied hem aan.{% endif %}
-</p>
 <nav class="filters" aria-label="Filter op soort">
-  <span class="lbl">Soort</span>
-  <a class="chipbtn" href="{{ path }}" {% if not soort %}aria-current="true"{% endif %}>Alles</a>
+  <a class="chip" href="{{ path }}" {% if not soort %}aria-current="true"{% endif %}>Alles</a>
   {% for k in ["H", "G", "C", "P", "R", "I"] %}
-  <a class="chipbtn" href="{{ path }}?soort={{ k }}" {% if soort == k %}aria-current="true"{% endif %}>{{ k }} · {{ PARTS[k].split(" ")[0] }}</a>
+  <a class="chip" href="{{ path }}?soort={{ k }}" title="{{ PARTS[k] }}" {% if soort == k %}aria-current="true"{% endif %}>{{ k }}</a>
   {% endfor %}
 </nav>
 {% if ranked %}
@@ -19,7 +14,6 @@
   {% for rank, l in ranked %}{{ m.card(l, user, rank=rank, next=path ~ ("?soort=" ~ soort if soort else "")) }}{% endfor %}
 </div>
 {% else %}
-<div class="empty">Niets gevonden{{ " voor dit soort dienst" if soort }}. Plaats er zelf een via <a href="/plaatsen{{ '?soort=gezocht' if kind == 'wanted' }}">+ Plaatsen</a>.</div>
+<div class="empty">Niks{{ " met " ~ soort if soort }}. <a href="/plaatsen{{ '?soort=gezocht' if kind == 'wanted' }}">Plaats er een</a></div>
 {% endif %}
-{{ m.legend() }}
 {% endblock %}

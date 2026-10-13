@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.main import app
 from app.models import Kind, Listing, ListingStatus, Notification, Reaction, ReactionStatus, User
-from tests.conftest import login, make_user
+from tests.conftest import join, login, make_user
 
 TODAY = services.local_today(get_settings())
 
@@ -325,7 +325,7 @@ def test_wanted_flow_offerer_becomes_giver(people):
     # Either party can mark the mail as sent; the other is told.
     s_client.post(f"/listings/{listing.id}/mail-sent")
     assert any("naar planning gemaild" in t for t in notifications_for(noor))
-    assert "heeft planning gemaild" in n_client.get("/mijn").text
+    assert "Planning gemaild door Sanne de Vries" in n_client.get("/mijn").text
 
 
 # ---------------------------------------------------------------- concurrency
@@ -383,9 +383,9 @@ def test_reading_notifications_marks_them_read(people):
     _, n_client = people["noor"]
     listing = post_offer(d_client)
     n_client.post(f"/listings/{listing.id}/react")
-    assert 'class="dot"' in d_client.get("/bell").text
+    assert 'class="dot"' in d_client.get("/aangeboden").text
     d_client.get("/meldingen")
-    assert 'class="dot"' not in d_client.get("/bell").text
+    assert 'class="dot"' not in d_client.get("/aangeboden").text
 
 
 def test_delete_account_removes_data_and_tells_reactors(people):
@@ -407,17 +407,24 @@ def test_delete_account_removes_data_and_tells_reactors(people):
 
 
 def test_admin_pages(people):
-    _, s_client = people["sanne"]
+    sanne, s_client = people["sanne"]
     assert s_client.get("/beheer").status_code == 403
 
     admin = make_user("Ad Min", is_admin=True)
     a_client = login(TestClient(app), admin)
-    a_client.post(
-        "/beheer/users",
-        data={"name": "Fleur Mulder", "email": "Fleur@Voorbeeld.nl", "send_invite": "true"},
-    )
-    assert mail.outbox and mail.outbox[-1]["To"] == "fleur@voorbeeld.nl"
-    assert "Fleur Mulder" in a_client.get("/beheer").text
+    page = a_client.get("/beheer").text
+    old_code = page.split("/join/")[1].split('"')[0]
+
+    # A one-time link for a colleague who lost their phone.
+    page = a_client.post(f"/beheer/users/{sanne.id}/link").text
+    link = page.split('id="userlink" value="http://testserver')[1].split('"')[0]
+    phone = TestClient(app)
+    phone.post(link, follow_redirects=False)
+    assert "Sanne de Vries" in phone.get("/aangeboden").text
+
+    # Rotating the join link stops the old one.
+    a_client.post("/beheer/join-link")
+    assert "werkt niet meer" in TestClient(app).get(f"/join/{old_code}").text
 
 
 def test_admin_bootstrap_on_startup():
@@ -482,3 +489,73 @@ def test_planning_mail_template():
     assert "HG (Horeca (bar) → Garderobe)" in m.body
     assert m.cc == ["a@x.nl", "b@x.nl"]
     assert m.mailto.startswith("mailto:p%40x.nl?cc=")
+
+
+# ---------------------------------------------------------------- join link (no email)
+
+
+def test_join_with_just_a_name():
+    client = join(TestClient(app), "  Fleur   Mulder ")
+    page = client.get("/aangeboden").text
+    assert "Fleur Mulder" in page
+    with SessionLocal() as s:
+        user = s.scalars(select(User).where(User.name == "Fleur Mulder")).one()
+        assert user.email is None
+
+
+def test_join_rejects_bad_code_and_taken_name():
+    client = TestClient(app)
+    assert "werkt niet meer" in client.get("/join/wrong").text
+    r = client.post("/join/wrong", data={"name": "X Y"})
+    assert r.status_code == 422 and "werkt niet meer" in r.text
+    join(TestClient(app), "Thijs de Boer")
+    with SessionLocal() as s:
+        from app import auth
+
+        code = auth.join_code(s)
+    r = client.post(f"/join/{code}", data={"name": "thijs de boer"})
+    assert r.status_code == 422 and "al in gebruik" in r.text
+
+
+def test_device_link_logs_in_second_device():
+    laptop = join(TestClient(app), "Lotte Visser")
+    page = laptop.post("/account/device-link").text
+    link = page.split('id="devlink" value="http://testserver')[1].split('"')[0]
+    phone = TestClient(app)
+    assert "Inloggen op dit apparaat" in phone.get(link).text
+    phone.post(link, follow_redirects=False)
+    assert "Lotte Visser" in phone.get("/mijn").text
+    assert "werkt niet meer" in TestClient(app).get(link).text  # single use
+
+
+def test_add_email_needs_verification():
+    client = join(TestClient(app), "Milan Jansen")
+    client.post("/account/email", data={"email": "milan@voorbeeld.nl"})
+    with SessionLocal() as s:
+        assert s.scalars(select(User).where(User.name == "Milan Jansen")).one().email is None
+    body = mail.outbox[-1].get_content()
+    assert mail.outbox[-1]["To"] == "milan@voorbeeld.nl"
+    path = body.split("http://testserver")[1].split()[0]
+    client.post(path, follow_redirects=False)
+    with SessionLocal() as s:
+        user = s.scalars(select(User).where(User.name == "Milan Jansen")).one()
+        assert user.email == "milan@voorbeeld.nl"
+
+
+def test_swap_between_people_without_email():
+    giver = join(TestClient(app), "Noor Smit")
+    taker = join(TestClient(app), "Bram Meijer")
+    listing = post_offer(giver)
+    taker.post(f"/listings/{listing.id}/react")
+    giver.post(f"/reactions/{reactions(listing.id)[0].id}/accept")
+    page = taker.get("/mijn").text
+    assert "Bram Meijer neemt de volgende dienst over van Noor Smit" in page
+    assert "Cc:" not in page
+    assert mail.outbox == []  # nobody has an address, so no notification mails
+
+
+def test_mail_disabled_hides_email_login(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "dev_mode", False)
+    assert not settings.mail_enabled
+    assert 'name="email"' not in TestClient(app).get("/login").text

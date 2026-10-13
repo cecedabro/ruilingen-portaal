@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import secrets
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import date
@@ -9,8 +10,9 @@ from pathlib import Path
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import auth, services
@@ -20,7 +22,7 @@ from app.db import SessionLocal, get_db
 from app.models import Kind, Listing, Notification, User, utcnow
 from app.services import Deal, SwapError
 from app.shifts import planning_mail
-from app.web import flash, redirect, render, safe_next, send_queued, templates
+from app.web import flash, redirect, render, safe_next, send_queued
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s %(message)s")
 log = logging.getLogger("ruilingen")
@@ -77,7 +79,8 @@ async def guard(request: Request, call_next):
     response.headers.setdefault("Referrer-Policy", "same-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     if request.url.path.startswith("/static/"):
-        response.headers.setdefault("Cache-Control", "public, max-age=86400")
+        # URLs carry ?v=<hash of the files>, so they can be cached forever.
+        response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
     else:
         response.headers.setdefault("Cache-Control", "no-store")
     return response
@@ -92,6 +95,7 @@ app.add_middleware(
     same_site="lax",
     https_only=settings.secure_cookies,
 )
+app.add_middleware(GZipMiddleware, minimum_size=600)
 
 
 @app.exception_handler(LoginRequired)
@@ -131,6 +135,7 @@ def act(
     ok: str | None,
     next_url: str | None,
     default: str,
+    anchor: str = "",
     **kwargs,
 ) -> Response:
     """Run one state change, flash the result and redirect (POST → redirect → GET)."""
@@ -142,7 +147,7 @@ def act(
         send_queued(db, background)
         if ok:
             flash(request, ok)
-    return redirect(safe_next(next_url, default))
+    return redirect(safe_next(next_url, default) + anchor)
 
 
 # ---------------------------------------------------------------- misc
@@ -184,6 +189,7 @@ def login_submit(
 ):
     db.info["mails"] = []
     link = auth.request_login(db, settings, email, next_path=safe_next(next, ""))
+    db.commit()
     send_queued(db, background)
     return render(
         request,
@@ -191,6 +197,27 @@ def login_submit(
         email=auth.normalise_email(email),
         dev_link=link if settings.dev_mode else None,
     )
+
+
+@app.get("/join/{code}", response_class=HTMLResponse)
+def join_form(request: Request, code: str, user=Depends(current_user), db=Depends(get_db)):
+    if user:
+        return redirect("/aangeboden")
+    valid = secrets.compare_digest(code, auth.join_code(db))
+    return render(request, "join.html", code=code, valid=valid, name="")
+
+
+@app.post("/join/{code}", response_class=HTMLResponse)
+def join_submit(request: Request, code: str, name: str = Form(""), db=Depends(get_db)):
+    try:
+        user = auth.join(db, code, name)
+    except SwapError as e:
+        db.rollback()
+        return render(
+            request, "join.html", code=code, valid=True, name=name, error=str(e), status_code=422
+        )
+    auth.log_in(request, user)
+    return redirect("/aangeboden")
 
 
 @app.get("/login/{token}", response_class=HTMLResponse)
@@ -212,7 +239,6 @@ def login_finish(request: Request, token: str, next: str = Form(""), db=Depends(
         flash(request, "Deze link is verlopen of al gebruikt. Vraag een nieuwe aan.", "error")
         return redirect("/login")
     auth.log_in(request, user)
-    flash(request, f"Welkom, {user.first_name}!")
     return redirect(safe_next(next, "/aangeboden"))
 
 
@@ -350,8 +376,8 @@ def post_submit(
             error=str(e),
             status_code=422,
         )
-    flash(request, f"Geplaatst om {listing.created_at.astimezone(settings.tz):%H:%M}.")
-    return redirect("/aangeboden" if kind == Kind.OFFER else "/gezocht")
+    flash(request, "Geplaatst.")
+    return redirect(("/aangeboden" if kind == Kind.OFFER else "/gezocht") + f"#l{listing.id}")
 
 
 # ---------------------------------------------------------------- reactions
@@ -380,9 +406,10 @@ def react(
         offer_start=offer_start,
         offer_end=offer_end,
         offer_type=offer_type,
-        ok="Gereageerd. De plaatser krijgt een melding.",
+        ok="Gereageerd.",
         next_url=next,
         default="/aangeboden",
+        anchor=f"#l{listing_id}",
     )
 
 
@@ -402,7 +429,7 @@ def withdraw(
         services.withdraw,
         user,
         reaction_id,
-        ok="Reactie ingetrokken.",
+        ok="Ingetrokken.",
         next_url=next,
         default="/mijn",
     )
@@ -423,7 +450,7 @@ def decline(
         services.decline,
         user,
         reaction_id,
-        ok="Reactie afgewezen.",
+        ok="Afgewezen.",
         next_url=None,
         default="/mijn",
     )
@@ -487,7 +514,7 @@ def mail_sent(
         services.mark_mail_sent,
         user,
         listing_id,
-        ok="Genoteerd. Je collega ziet dat de mail weg is.",
+        ok="Genoteerd.",
         next_url=None,
         default="/mijn",
     )
@@ -526,16 +553,6 @@ def notifications(request: Request, user=Depends(require_user), db=Depends(get_d
     return response
 
 
-@app.get("/bell", response_class=HTMLResponse)
-def bell(request: Request, user=Depends(current_user), db=Depends(get_db)):
-    if user is None:
-        return HTMLResponse("", status_code=204)
-    # Not via render(): that would consume flash messages meant for the next full page.
-    return templates.TemplateResponse(
-        request, "_bell.html", {"unread": services.unread_count(db, user)}
-    )
-
-
 # ---------------------------------------------------------------- account
 
 
@@ -552,15 +569,50 @@ def account_save(
     user=Depends(require_user),
     db=Depends(get_db),
 ):
-    name = " ".join(name.split())[:80]
-    if len(name) < 2:
-        flash(request, "Vul je naam in.", "error")
+    try:
+        user.name = auth.check_name(db, name, exclude_id=user.id)
+    except SwapError as e:
+        flash(request, str(e), "error")
         return redirect("/account")
-    user.name = name
-    user.email_notifications = email_notifications
+    if user.email:  # the checkbox is only shown when there is an address
+        user.email_notifications = email_notifications
     db.commit()
     flash(request, "Opgeslagen.")
     return redirect("/account")
+
+
+@app.post("/account/email")
+def account_email(
+    request: Request,
+    background: BackgroundTasks,
+    email: str = Form(""),
+    user=Depends(require_user),
+    db=Depends(get_db),
+):
+    if not settings.mail_enabled:
+        return redirect("/account")
+    if not email.strip():
+        user.email = None
+        db.commit()
+        flash(request, "E-mailadres verwijderd.")
+        return redirect("/account")
+    db.info["mails"] = []
+    try:
+        link = auth.request_email_change(db, settings, user, email)
+    except SwapError as e:
+        flash(request, str(e), "error")
+        return redirect("/account")
+    send_queued(db, background)
+    flash(request, "Check je mail en klik op de link om het adres te bevestigen.")
+    if settings.dev_mode:
+        flash(request, f"Ontwikkelmodus: {link}")
+    return redirect("/account")
+
+
+@app.post("/account/device-link", response_class=HTMLResponse)
+def device_link(request: Request, user=Depends(require_user), db=Depends(get_db)):
+    link = auth.make_link(db, settings, user)
+    return render(request, "account.html", db=db, user=user, device_link=link)
 
 
 @app.post("/account/logout-everywhere")
@@ -602,51 +654,41 @@ def account_delete(
 # ---------------------------------------------------------------- admin
 
 
+def _admin_page(request: Request, db: Session, user: User, **ctx):
+    users = list(db.scalars(select(User).order_by(User.is_active.desc(), func.lower(User.name))))
+    return render(
+        request,
+        "admin.html",
+        db=db,
+        user=user,
+        users=users,
+        join_url=auth.join_link(db, settings),
+        **ctx,
+    )
+
+
 @app.get("/beheer", response_class=HTMLResponse)
 def admin(request: Request, user=Depends(require_admin), db=Depends(get_db)):
-    users = list(db.scalars(select(User).order_by(User.is_active.desc(), User.name)))
-    return render(request, "admin.html", db=db, user=user, users=users)
+    return _admin_page(request, db, user)
 
 
-@app.post("/beheer/users")
-def admin_add(
-    request: Request,
-    background: BackgroundTasks,
-    name: str = Form(""),
-    email: str = Form(""),
-    send_invite: bool = Form(False),
-    user=Depends(require_admin),
-    db=Depends(get_db),
-):
-    email = auth.normalise_email(email)
-    name = " ".join(name.split())[:80]
-    if "@" not in email or len(name) < 2:
-        flash(request, "Vul een naam en een geldig e-mailadres in.", "error")
-        return redirect("/beheer")
-    existing = db.scalar(select(User).where(User.email == email))
-    if existing:
-        existing.is_active = True
-        db.commit()
-        flash(request, f"{existing.name} stond er al en is (weer) actief.")
-        return redirect("/beheer")
-    new = User(email=email, name=name)
-    db.add(new)
-    db.commit()
-    if send_invite:
-        from app.mail import send
-
-        background.add_task(
-            send,
-            settings,
-            email,
-            f"Je bent uitgenodigd voor {settings.app_name}",
-            f"Hoi {new.first_name},\n\n{user.name} heeft je toegevoegd aan {settings.app_name}, "
-            "het ruilbord voor diensten met collega's.\n\n"
-            f"Inloggen gaat met je e-mailadres, zonder wachtwoord: {settings.base_url}/login\n\n"
-            f"Wat we bewaren en waarom: {settings.base_url}/privacy",
-        )
-    flash(request, f"{name} toegevoegd.")
+@app.post("/beheer/join-link")
+def admin_rotate(request: Request, user=Depends(require_admin), db=Depends(get_db)):
+    auth.rotate_join_code(db)
+    flash(request, "Nieuwe link gemaakt. De oude werkt niet meer; deel de nieuwe in de groep.")
     return redirect("/beheer")
+
+
+@app.post("/beheer/users/{user_id}/link", response_class=HTMLResponse)
+def admin_user_link(
+    request: Request, user_id: int, user=Depends(require_admin), db=Depends(get_db)
+):
+    target = db.get(User, user_id)
+    if target is None or not target.is_active:
+        flash(request, "Dat kan niet.", "error")
+        return redirect("/beheer")
+    link = auth.make_link(db, settings, target, minutes=60 * 24)
+    return _admin_page(request, db, user, user_link=(target, link))
 
 
 @app.post("/beheer/users/{user_id}/toggle")

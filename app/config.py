@@ -22,7 +22,9 @@ class Settings(BaseSettings):
 
     # Signs the session cookie. Changing it logs everyone out.
     session_secret: str = "dev-only-change-me"
-    session_days: int = 90
+    # Rolling: every visit renews it. People without an email can't log back in on their own,
+    # so keep this long.
+    session_days: int = 365
     login_link_minutes: int = 20
     # Max login mails per address per hour (stops someone flooding a colleague's inbox).
     login_mails_per_hour: int = 5
@@ -31,8 +33,9 @@ class Settings(BaseSettings):
     admin_emails: str = ""
     planning_email: str = "planning@example.org"
 
-    # "console" prints mails to the log; "smtp" sends them (Brevo, Resend, ... all speak SMTP).
-    mail_backend: str = "console"
+    # "smtp" sends mail (Brevo, Resend, ... all speak SMTP). "console" only prints it to the log
+    # (development). "none": no mail at all; email login and notifications are hidden.
+    mail_backend: str = "none"
     mail_from: str = "Ruilingen <noreply@ruilingen.app>"
     smtp_host: str = ""
     smtp_port: int = 587
@@ -64,6 +67,12 @@ class Settings(BaseSettings):
     @property
     def secure_cookies(self) -> bool:
         return self.base_url.startswith("https://")
+
+    @property
+    def mail_enabled(self) -> bool:
+        return (self.mail_backend == "smtp" and bool(self.smtp_host)) or (
+            self.mail_backend == "console" and self.dev_mode
+        )
 
     @property
     def admin_email_list(self) -> list[str]:

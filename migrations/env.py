@@ -68,6 +68,14 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # Batch mode rebuilds a table by copy + DROP + rename. With foreign keys on, that DROP
+        # would cascade-delete every row pointing at it (e.g. all listings when rebuilding
+        # users). Keep them off during migrations.
+        # The commit ends SQLAlchemy's implicit transaction: otherwise Alembic thinks it's
+        # already inside one, never commits, and the migration is silently rolled back.
+        if connection.dialect.name == "sqlite":
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.commit()
         context.configure(
             connection=connection, target_metadata=target_metadata, render_as_batch=True
         )

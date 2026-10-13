@@ -4,15 +4,13 @@
 <div class="form narrow">
 {% if valid %}
   <h2>Hoi {{ name }}</h2>
-  <form method="post" hx-boost="false">
+  <form method="post">
     <input type="hidden" name="next" value="{{ next }}">
-    <button class="btn primary" type="submit">Inloggen</button>
+    <button class="btn primary" type="submit">Inloggen op dit apparaat</button>
   </form>
-  <p class="meta">Je blijft {{ settings.session_days }} dagen ingelogd op dit apparaat.</p>
 {% else %}
   <h2>Deze link werkt niet meer</h2>
-  <p>De link is verlopen of al gebruikt.</p>
-  <p><a class="btn primary" href="/login">Nieuwe link aanvragen</a></p>
+  <p>Hij is verlopen of al gebruikt.</p>
 {% endif %}
 </div>
 {% endblock %}

@@ -1,12 +1,10 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
-{% block title %}Mijn ruilen · {{ settings.app_name }}{% endblock %}
+{% block title %}Mijn · {{ settings.app_name }}{% endblock %}
 {% block content %}
 {% if not items %}
-<p class="intro">Hier zie je jouw geplaatste diensten, de reacties erop, en je eigen reacties.</p>
-<div class="empty">Nog niets. Kijk bij <a href="/aangeboden">Aangeboden</a> of <a href="/gezocht">Gezocht</a>, of plaats zelf iets.</div>
+<div class="empty list">Nog niks geplaatst of gereageerd.</div>
 {% else %}
-<p class="intro">Jouw geplaatste diensten en reacties. Kies zelf welke reactie je accepteert; de volgorde laat zien wie er het eerst was.</p>
 <div class="list">
 {% for l, deal, mail in items %}
   {% if deal %}
@@ -17,40 +15,32 @@
       <span class="time">{{ deal.start }}–{{ deal.end }}</span>
       {{ m.code(deal.code, true) }}
     </div>
-    <div>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} deze dienst over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}.</div>
-    <div class="checks">
-      <div>{{ deal.reaction.user.name }} heeft gereageerd op <span class="mono">{{ stamp(deal.reaction.created_at) }}</span></div>
-      <div>{{ l.user.name }} heeft bevestigd op <span class="mono">{{ stamp(deal.reaction.decided_at) }}</span></div>
-      {% if l.mail_sent_at %}<div>{{ l.mail_sent_by.name if l.mail_sent_by else "Een van jullie" }} heeft planning gemaild op <span class="mono">{{ stamp(l.mail_sent_at) }}</span></div>{% endif %}
-    </div>
-    {% if not l.mail_sent_at %}
-    <div class="mailhead">
-      <div><b>Aan</b> {{ mail.to }}</div>
-      <div><b>Cc</b> {{ mail.cc | join(", ") }}</div>
-      <div><b>Onderwerp</b> {{ mail.subject }}</div>
-    </div>
-    <pre class="mail" id="mail{{ l.id }}">{{ mail.body }}</pre>
-    <textarea hidden id="mailtext{{ l.id }}" aria-hidden="true">{{ mail.as_text }}</textarea>
+    <div>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}.</div>
+    {% if l.mail_sent_at %}
+    <div class="meta">Planning gemaild door {{ l.mail_sent_by.name if l.mail_sent_by else "een van jullie" }}, {{ stamp(l.mail_sent_at) }}</div>
+    {% else %}
     <div class="actions">
-      <a class="btn primary" href="{{ mail.mailto }}" hx-boost="false">Open in mailapp</a>
-      <button class="btn" type="button" data-copy="mailtext{{ l.id }}" data-select="mail{{ l.id }}" hidden>Kopieer mail</button>
+      <a class="btn primary" href="{{ mail.mailto }}">Mail planning</a>
+      <button class="btn" type="button" data-copy="mailtext{{ l.id }}" hidden>Kopieer</button>
       <form class="inline" method="post" action="/listings/{{ l.id }}/mail-sent">
-        <button class="btn ok" type="submit">Ik heb de mail verstuurd</button>
+        <button class="btn ok" type="submit">Verstuurd ✓</button>
       </form>
     </div>
-    <span class="meta">Je verstuurt de mail zelf, zodat planning hem van jullie krijgt, net als nu. Eén van jullie tweeën is genoeg.</span>
+    <details class="mailtext">
+      <summary>Bekijk mail</summary>
+      <pre class="mail" id="mailtext{{ l.id }}">{{ mail.as_text }}</pre>
+    </details>
     {% endif %}
   </article>
   {% elif l.user_id == user.id %}
     {% set pending = l.pending_reactions %}
     {% set extra %}
     <div class="reactions">
-      <h3>Reacties ({{ pending | length }})</h3>
       {% for r in pending %}
       <div class="react">
         <span class="rank">#{{ loop.index }}</span>
         <span class="who-n">{{ r.user.name }}</span>
-        {% if r.offer_type %}<span>biedt {{ m.code(r.offer_type, true) }} <span class="time">{{ r.offer_start }}–{{ r.offer_end }}</span></span>{% endif %}
+        {% if r.offer_type %}<span>{{ m.code(r.offer_type, true) }} <span class="time">{{ r.offer_start }}–{{ r.offer_end }}</span></span>{% endif %}
         <span class="meta mono">{{ stamp(r.created_at) }}</span>
         <div class="actions">
           <form class="inline" method="post" action="/reactions/{{ r.id }}/accept"><button class="btn ok" type="submit">Bevestigen</button></form>
@@ -60,11 +50,9 @@
       {% else %}
       <div class="meta">Nog geen reacties.</div>
       {% endfor %}
-      <div class="actions">
-        <form class="inline" method="post" action="/listings/{{ l.id }}/remove" hx-confirm="Deze dienst weghalen? Wie gereageerd heeft krijgt een melding.">
-          <button class="linkish" type="submit">Dienst weghalen</button>
-        </form>
-      </div>
+      <form method="post" action="/listings/{{ l.id }}/remove" data-confirm="Weghalen?">
+        <button class="linkish" type="submit">Weghalen</button>
+      </form>
     </div>
     {% endset %}
     {{ m.card(l, user, next="/mijn", extra=extra) }}

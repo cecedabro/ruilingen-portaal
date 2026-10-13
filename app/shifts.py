@@ -81,23 +81,22 @@ class PlanningMail:
 
     @property
     def mailto(self) -> str:
-        return (
-            f"mailto:{quote(self.to)}?cc={quote(','.join(self.cc))}"
-            f"&subject={quote(self.subject)}&body={quote(self.body)}"
-        )
+        cc = f"cc={quote(','.join(self.cc))}&" if self.cc else ""
+        return f"mailto:{quote(self.to)}?{cc}subject={quote(self.subject)}&body={quote(self.body)}"
 
     @property
     def as_text(self) -> str:
-        return f"Aan: {self.to}\nCc: {', '.join(self.cc)}\nOnderwerp: {self.subject}\n\n{self.body}"
+        cc = f"Cc: {', '.join(self.cc)}\n" if self.cc else ""
+        return f"Aan: {self.to}\n{cc}Onderwerp: {self.subject}\n\n{self.body}"
 
 
 def planning_mail(
     *,
     planning: str,
     giver_name: str,
-    giver_email: str,
+    giver_email: str | None,
     taker_name: str,
-    taker_email: str,
+    taker_email: str | None,
     day: date,
     start: str,
     end: str,
@@ -115,7 +114,7 @@ def planning_mail(
     )
     return PlanningMail(
         to=planning,
-        cc=[giver_email, taker_email],
+        cc=[e for e in (giver_email, taker_email) if e],
         subject=f"Dienstruil {fmt_date(day)} · {code} {start}–{end}",
         body=body,
     )

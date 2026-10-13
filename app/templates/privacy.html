@@ -1,21 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Wat we bewaren · {{ settings.app_name }}{% endblock %}
+{% block title %}Privacy · {{ settings.app_name }}{% endblock %}
 {% block content %}
 <div class="prose">
-<h2 class="intro">Wat we bewaren, en waarom</h2>
-<p>{{ settings.app_name }} is een informeel hulpmiddel van en voor collega's om diensten te ruilen, in plaats van de groepsapp. Het is <b>niet</b> het officiële planningssysteem: planning krijgt zoals altijd een mail van jullie zelf.</p>
-<h3>Wat we opslaan</h3>
+<h2>Wat we bewaren</h2>
 <ul>
-  <li>Je <b>naam</b> en <b>e-mailadres</b>: om in te loggen, en zodat collega's zien met wie ze ruilen.</li>
-  <li>De <b>diensten</b> die je plaatst en je <b>reacties</b> erop, met het tijdstip (zo is zichtbaar wie er het eerst was).</li>
-  <li><b>Meldingen</b> voor jou, en wanneer je voor het laatst bent ingelogd.</li>
+  <li>Je <b>naam</b>, zodat collega's zien met wie ze ruilen.</li>
+  <li>De diensten die je plaatst en je reacties, met tijdstip (wie was eerst).</li>
+  <li>Je meldingen, en wanneer je voor het laatst inlogde.</li>
+  <li>Alleen als je het zelf invult: je <b>e-mailadres</b>, voor meldingen per mail en inloggen op een nieuw apparaat.</li>
 </ul>
-<p>Meer niet: geen wachtwoorden, geen tracking, geen advertenties, geen cookies behalve de inlogcookie.</p>
-<h3>Hoe lang</h3>
-<p>Diensten, ruilen en meldingen worden <b>{{ settings.retention_days // 7 }} weken</b> na de dienstdatum automatisch verwijderd. Je kunt je account zelf op elk moment verwijderen via <a href="/account">Account</a>; dan is alles van jou direct weg.</p>
-<h3>Wie het ziet</h3>
-<p>Alleen uitgenodigde collega's kunnen inloggen. Zij zien de geplaatste diensten met naam. Je e-mailadres zien alleen beheerders, en de collega met wie je een ruil rondmaakt (in de mail aan planning).</p>
-<h3>Waar</h3>
-<p>Dit is een pilot die draait op een thuisserver van een collega. Mail (inloglinks, meldingen) gaat via een mailprovider. Ligt de site plat, ruil dan gewoon via de groepsapp.</p>
+<p>Geen wachtwoorden, geen tracking, geen advertenties. Eén cookie: om je ingelogd te houden.</p>
+<p>Alles wordt <b>{{ settings.retention_days // 7 }} weken</b> na de dienstdatum automatisch verwijderd. Je account verwijder je zelf via <a href="/account">Account</a>; dan is alles van jou direct weg.</p>
+<p>Alleen collega's met de link uit de groep kunnen meedoen. Dit is geen officieel systeem van het werk, maar een pilot op een thuisserver: ligt hij plat, dan gewoon via de groepsapp.</p>
 </div>
 {% endblock %}

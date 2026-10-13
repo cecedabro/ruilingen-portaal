@@ -1,8 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Meldingen · {{ settings.app_name }}{% endblock %}
 {% block content %}
-<h2 class="intro">Meldingen</h2>
-<p class="meta">{% if user.email_notifications %}Je krijgt deze ook per mail. <a href="/account">Uitzetten</a>{% else %}Mail staat uit. <a href="/account">Aanzetten</a>{% endif %}</p>
 <div class="list">
 {% for n in items %}
   <a class="notif{{ ' unread' if n.id in unread_ids }}" href="{{ n.link }}">{{ n.text }}<span class="meta mono">{{ stamp(n.created_at) }}</span></a>

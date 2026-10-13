@@ -28,6 +28,8 @@ def build(settings: Settings, to: str, subject: str, body: str) -> EmailMessage:
 def send(settings: Settings, to: str, subject: str, body: str) -> None:
     """Send one mail. Errors are logged, never raised: a failed notification must not
     break the action that triggered it."""
+    if not settings.mail_enabled:
+        return
     msg = build(settings, to, subject, body)
     try:
         if settings.mail_backend == "smtp":

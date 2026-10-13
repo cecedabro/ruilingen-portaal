@@ -94,7 +94,7 @@ project (a FastAPI platform):
 - **FastAPI** (Python) + **Jinja2** server-rendered templates + **HTMX** for interactivity
   (no separate JS build)
 - **SQLite** (one file; plenty for a group of colleagues). SQLAlchemy/SQLModel + Alembic migrations
-- Login via **magic link** (email link, no passwords), sessions in a signed cookie
+- Login via a **group join link + name** (email optional), sessions in a signed cookie
 - Outgoing email (magic links + notifications) via a transactional mail service free tier
   (e.g. Brevo or Resend). **Not** from the homelab itself (it would land in spam).
 - Dutch UI; code and repo in English
@@ -150,7 +150,8 @@ cp .env.example .env                    # DEV_MODE=true: login link shown on scr
 .venv/bin/pytest                        # tests
 .venv/bin/ruff check . && .venv/bin/ruff format .
 ```
-Log in with a seeded address such as `daan.bakker@voorbeeld.nl` (admin in the seed).
+Join via `.venv/bin/python -m app.cli join-link`, or log in with a seeded address such as
+`daan.bakker@voorbeeld.nl` (admin in the seed; in dev mode the link shows on screen).
 
 Changing the models: edit `app/models.py`, then
 `.venv/bin/alembic revision --autogenerate -m "what changed"`, read the generated file, and commit it.
@@ -160,7 +161,8 @@ Changing the models: edit `app/models.py`, then
 |---|---|
 | `app/main.py` | routes (thin: parse the form, call a service, redirect) |
 | `app/services.py` | all swap rules: posting, reacting, confirming, removing, cleanup |
-| `app/auth.py` | magic-link login, session cookie, CSRF origin check |
+| `app/auth.py` | join link, one-time links, optional email, session cookie, CSRF check |
+| `app/cli.py` | `admin-link` / `join-link` for the server shell |
 | `app/models.py` | database tables |
 | `app/shifts.py` | shift codes, Dutch date formatting, the planning email template |
 | `app/mail.py` | outgoing mail (SMTP or console) |
@@ -173,10 +175,14 @@ Changing the models: edit `app/models.py`, then
   open reaction per person per listing is a partial unique index. Confirming flips the listing
   with `UPDATE ... WHERE status='open'`, so two simultaneous confirms can't both win
   (there is a test that races two threads).
-- **Magic links need a click.** The link in the mail opens a page with a button; mail scanners
-  that open links can't burn the token. Tokens are stored hashed, single-use, 20 minutes.
-- **No JavaScript needed.** Every action is a normal form POST → redirect. HTMX `hx-boost` only
-  makes it feel instant; `app.js` only adds the "copy" button.
-- **Privacy.** Self-hosted fonts and scripts (no Google, no CDN), strict CSP, no analytics.
+- **Login with the least friction.** A join link (`/join/<code>`) is shared in the group chat:
+  open it, type your name, done. The browser stays logged in (rolling one-year cookie). No email
+  needed; trust-based like the group chat, while the code keeps strangers out (admins can rotate
+  it). Email is optional, verified, and adds mail notifications + email login. Other devices are
+  linked with one-time links (from Account, or an admin). One-time links are stored hashed and
+  need a click on a page first, so mail scanners can't burn them.
+- **Lean.** Server-rendered HTML, plain form POST → redirect, no JS framework, system fonts.
+  A page is a few KB (gzip); `app.js` only adds copy buttons and confirm dialogs.
+- **Privacy.** Nothing from third parties (no fonts, CDN or analytics), strict CSP.
   Old data is deleted automatically (`RETENTION_DAYS`, default 6 weeks after the shift date);
   users can delete their account themselves.

@@ -4,10 +4,9 @@
 {% block content %}
 {% set offer = kind == "offer" %}
 <form class="form" method="post" action="/plaatsen">
-  <h2>Iets plaatsen</h2>
   <div class="seg" role="group" aria-label="Wat wil je?">
-    <a href="/plaatsen" {% if offer %}aria-current="true"{% endif %}>Ik geef een dienst weg</a>
-    <a href="/plaatsen?soort=gezocht" {% if not offer %}aria-current="true"{% endif %}>Ik zoek een dienst</a>
+    <a href="/plaatsen" {% if offer %}aria-current="true"{% endif %}>Weggeven</a>
+    <a href="/plaatsen?soort=gezocht" {% if not offer %}aria-current="true"{% endif %}>Zoeken</a>
   </div>
   <input type="hidden" name="kind" value="{{ kind }}">
   {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
@@ -15,29 +14,24 @@
     <div class="field"><label for="fd">Datum</label>
       <input type="date" id="fd" name="day" required min="{{ today.isoformat() }}" value="{{ form.day or '' }}"></div>
     {% if offer %}
-    <div class="field"><label for="fs">Begin</label><input type="time" id="fs" name="start" required value="{{ form.start or '18:00' }}"></div>
-    <div class="field"><label for="fe">Eind</label><input type="time" id="fe" name="end" required value="{{ form.end or '23:30' }}"></div>
+    <div class="field"><label for="fs">Begin</label><input type="time" id="fs" name="start" required value="{{ form.start or '' }}"></div>
+    <div class="field"><label for="fe">Eind</label><input type="time" id="fe" name="end" required value="{{ form.end or '' }}"></div>
     {% endif %}
   </div>
   <fieldset class="field">
-    <legend>{{ "Soort dienst" if offer else "Welke soorten zou je willen? (meerdere mag)" }}</legend>
+    <legend>{{ "Soort" if offer else "Soorten (meerdere mag)" }}</legend>
     <div class="typepick">
       {% for t in SHIFT_TYPES %}
-      <label title="{{ explain(t) }}">
-        {% if offer %}
-        <input type="radio" name="code" value="{{ t }}" {% if (form.code or "H") == t %}checked{% endif %} required>
-        {% else %}
-        <input type="checkbox" name="codes" value="{{ t }}" {% if t in (form.codes or []) %}checked{% endif %}>
-        {% endif %}
-        {{ m.code(t, true) }}<span class="sr-only">{{ explain(t) }}</span>
+      <label>
+        {% if offer %}<input type="radio" name="code" value="{{ t }}" {% if form.code == t %}checked{% endif %} required>
+        {% else %}<input type="checkbox" name="codes" value="{{ t }}" {% if t in (form.codes or []) %}checked{% endif %}>{% endif %}
+        {{ m.code(t, true) }}<span class="sr-only">{{ t }}</span>
       </label>
       {% endfor %}
     </div>
-    <small>Volgorde = volgorde in de dienst: HG is eerst bar, na de pauze garderobe.</small>
   </fieldset>
-  <div class="field"><label for="fn">Toelichting <span class="meta">(optioneel)</span></label>
-    <textarea id="fn" name="note" rows="2" maxlength="200" placeholder="Bijvoorbeeld: alleen vóór 22:00, of: graag bar">{{ form.note or '' }}</textarea></div>
-  <div class="actions"><button class="btn primary" type="submit">Plaatsen</button><span class="meta">Komt onderaan de lijst, met het tijdstip van nu.</span></div>
+  <div class="field"><label for="fn">Notitie <span class="meta">(optioneel)</span></label>
+    <textarea id="fn" name="note" rows="2" maxlength="200">{{ form.note or '' }}</textarea></div>
+  <div><button class="btn primary" type="submit">Plaatsen</button></div>
 </form>
-{{ m.legend() }}
 {% endblock %}

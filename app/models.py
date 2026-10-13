@@ -62,7 +62,9 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(254), unique=True)
+    # Optional: people join with just a name. With an email they get mail notifications and
+    # can log in with a mailed link. Only set after the address is verified.
+    email: Mapped[str | None] = mapped_column(String(254), unique=True)
     name: Mapped[str] = mapped_column(String(80))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -84,6 +86,8 @@ class LoginToken(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     # Only a hash is stored: a leaked database can't be used to log in.
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    # Set when the link verifies a new email address instead of (only) logging in.
+    email: Mapped[str | None] = mapped_column(String(254))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
     used_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
@@ -172,3 +176,12 @@ class Notification(Base):
     link: Mapped[str] = mapped_column(String(200), default="/mijn")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     read_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class AppSetting(Base):
+    """Small key/value store for settings admins change at runtime (the join code)."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)

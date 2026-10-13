@@ -1,31 +1,52 @@
 {% extends "base.html" %}
 {% block title %}Account · {{ settings.app_name }}{% endblock %}
 {% block content %}
-<form class="form" method="post" action="/account">
-  <h2>Je gegevens</h2>
-  <div class="grid2">
-    <div class="field"><label for="name">Naam</label>
-      <input id="name" name="name" required maxlength="80" value="{{ user.name }}" autocomplete="name">
-      <small>Zo zien collega's en planning je.</small></div>
-    <div class="field"><label>E-mailadres</label><input value="{{ user.email }}" disabled>
-      <small>Wijzigen? Vraag een beheerder.</small></div>
+{% if device_link %}
+<div class="form">
+  <h2>Link voor je andere apparaat</h2>
+  <div class="copyrow">
+    <input id="devlink" value="{{ device_link }}" readonly>
+    <button class="btn" type="button" data-copy="devlink" hidden>Kopieer</button>
   </div>
+  <p class="meta">Open hem op je andere apparaat (bijv. stuur hem naar jezelf). Werkt {{ settings.login_link_minutes }} minuten, één keer.</p>
+</div>
+{% endif %}
+
+<form class="form" method="post" action="/account">
+  <div class="field"><label for="name">Naam</label>
+    <input id="name" name="name" required maxlength="60" value="{{ user.name }}" autocomplete="name"></div>
+  {% if user.email %}
   <label class="check"><input type="checkbox" name="email_notifications" value="true" {% if user.email_notifications %}checked{% endif %}>
-    <span>Stuur mij een mail bij een reactie, als ik gekozen ben, of als een dienst weg is.</span></label>
-  <div class="actions"><button class="btn primary" type="submit">Opslaan</button></div>
+    <span>Meldingen ook per mail</span></label>
+  {% endif %}
+  <div><button class="btn primary" type="submit">Opslaan</button></div>
 </form>
 
+{% if settings.mail_enabled %}
+<form class="form" method="post" action="/account/email">
+  <div class="field"><label for="email">E-mail <span class="meta">(optioneel: meldingen per mail, inloggen op een nieuw apparaat)</span></label>
+    <div class="copyrow">
+      <input id="email" name="email" type="email" value="{{ user.email or '' }}" autocomplete="email">
+      <button class="btn" type="submit">{{ "Wijzig" if user.email else "Koppel" }}</button>
+    </div>
+  </div>
+</form>
+{% endif %}
+
 <div class="form">
-  <h2>Inloggen</h2>
-  <p class="meta">Telefoon kwijt of ingelogd op een computer van een ander? Log overal uit.</p>
-  <form method="post" action="/account/logout-everywhere"><button class="btn" type="submit">Overal uitloggen</button></form>
+  <div class="actions">
+    <form method="post" action="/account/device-link"><button class="btn" type="submit">Ander apparaat koppelen</button></form>
+    <form method="post" action="/account/logout-everywhere" data-confirm="Overal uitloggen?"><button class="btn" type="submit">Overal uitloggen</button></form>
+  </div>
+  {% if not user.email %}<p class="meta">Zonder e-mail kom je alleen terug via dit apparaat of een gekoppeld apparaat. Kwijt? Vraag een beheerder om een link.</p>{% endif %}
 </div>
 
-<form class="form" method="post" action="/account/delete">
-  <h2>Account verwijderen</h2>
-  <p class="meta">Dit verwijdert je account, je geplaatste diensten, je reacties en je meldingen. Open diensten worden weggehaald en wie erop reageerde krijgt bericht. Dit kan niet ongedaan worden.</p>
-  <div class="field"><label for="confirm">Typ <b>verwijder</b> om te bevestigen</label>
-    <input id="confirm" name="confirm" autocomplete="off"></div>
-  <div class="actions"><button class="btn danger" type="submit">Account verwijderen</button></div>
+<form class="form" method="post" action="/account/delete" data-confirm="Account en al je gegevens verwijderen?">
+  <div class="field"><label for="confirm">Account verwijderen: typ <b>verwijder</b></label>
+    <div class="copyrow">
+      <input id="confirm" name="confirm" autocomplete="off">
+      <button class="btn danger" type="submit">Verwijder</button>
+    </div>
+  </div>
 </form>
 {% endblock %}

@@ -25,8 +25,9 @@ Recommended zone settings: SSL/TLS → Edge Certificates → **Always Use HTTPS*
 Optional: Security → WAF → a rate-limiting rule on `/login` (e.g. 10 requests/minute per IP).
 The app already limits login mails per address.
 
-### 2. Mail provider (login links + notifications)
-The app speaks plain SMTP, so any provider works. The manifests assume **Resend**
+### 2. Mail provider (optional, can be done later)
+Without mail, everything works: people join with just their name via the group link. Mail
+adds optional email notifications and email login. The app speaks plain SMTP, so any provider works. The manifests assume **Resend**
 (free: 3,000 mails/month, 100/day). For Brevo instead, set `SMTP_HOST=smtp-relay.brevo.com`.
 
 1. Create an account, add the domain `ruilingen.app`.
@@ -40,20 +41,42 @@ In the OpenBao UI create `secret/ruilingen/app` with these keys:
 
 | Key | Value |
 |---|---|
-| `SESSION_SECRET` | `openssl rand -hex 32` |
-| `SMTP_USERNAME` | `resend` |
-| `SMTP_PASSWORD` | the Resend API key |
+| `SESSION_SECRET` | `openssl rand -hex 32` (required) |
 | `PLANNING_EMAIL` | the real planning address |
-| `ADMIN_EMAILS` | your own address (comma-separate more) |
+| `SMTP_USERNAME` | only with mail: `resend` |
+| `SMTP_PASSWORD` | only with mail: the Resend API key |
+| `ADMIN_EMAILS` | only with mail: your address (made admin at startup) |
 
 ### 4. Container image
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
-The first push creates the package `ghcr.io/cecedabro/ruilingen-portaal`. GitHub makes new
-packages **private**: on GitHub → your profile → Packages → ruilingen-portaal → Package settings
-→ Change visibility → **Public** (the cluster pulls without credentials, like the other apps).
-The image holds no secrets or personal data.
+Image: `ghcr.io/cecedabro/ruilingen-portaal` (public, inherits the repo's visibility).
+
+| Tag | When | Use |
+|---|---|---|
+| `0.2.0`, `0.2`, `latest` | `git tag v0.2.0` | pinned releases (Renovate) |
+| `main-<YYYYMMDDHHmmss>-<sha>` | every push to `main` | Flux image automation (sortable) |
+| `main`, `sha-<sha>` | every push to `main` | manual testing |
+
+Flux image automation (needs the image-reflector + image-automation controllers):
+```yaml
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata: {name: ruilingen, namespace: flux-system}
+spec: {image: ghcr.io/cecedabro/ruilingen-portaal, interval: 5m}
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata: {name: ruilingen, namespace: flux-system}
+spec:
+  imageRepositoryRef: {name: ruilingen}
+  filterTags: {pattern: '^main-(?P<ts>[0-9]+)-[a-f0-9]+$', extract: '$ts'}
+  policy: {numerical: {order: asc}}
+```
+and mark the image line in `deployment.yaml` with
+`# {"$imagepolicy": "flux-system:ruilingen"}` plus an `ImageUpdateAutomation` that commits to
+the homelab repo.
 
 ### 5. Homelab repo
 1. Copy `deploy/homelab/apps/ruilingen/` → `homelab/apps/ruilingen/` and
@@ -88,7 +111,17 @@ Cloudflare Zero Trust → Networks → Tunnels → `k3s-homelab` → Public host
 - Hostname: `ruilingen.app` (no subdomain)
 - Service: `HTTP` → `ruilingen.ruilingen.svc.cluster.local:80`
 
-Then open https://ruilingen.app/healthz → `ok`, and log in with an address from `ADMIN_EMAILS`.
+Then open https://ruilingen.app/healthz → `ok`.
+
+### 7. First admin and the join link
+No mail needed:
+```bash
+kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli admin-link "Your Name"
+```
+prints a one-time link (60 min). Open it on your phone: you're logged in as admin. On
+**Beheer** you'll find the **join link** to post in the WhatsApp group (also:
+`python -m app.cli join-link`). If it leaks, "Nieuwe link" there invalidates the old one.
+Someone lost their phone? Beheer → their name → **Inloglink**, send it to them privately.
 
 ## Releasing a new version
 ```bash

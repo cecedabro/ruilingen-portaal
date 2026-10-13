@@ -72,8 +72,9 @@ def queued_mails(db: Session) -> list[QueuedMail]:
 
 def notify(db: Session, user: User, text: str, link: str = "/mijn") -> None:
     db.add(Notification(user_id=user.id, text=text, link=link))
-    if user.email_notifications and user.is_active:
-        base = get_settings().base_url
+    settings = get_settings()
+    if user.email and user.email_notifications and user.is_active and settings.mail_enabled:
+        base = settings.base_url
         body = (
             f"Hoi {user.first_name},\n\n{text}\n\nBekijk het op {base}{link}\n\n"
             f"Geen mails meer van ons? Zet ze uit op {base}/account"

@@ -7,6 +7,7 @@ _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"
 os.environ["BASE_URL"] = "http://testserver"
 os.environ["MAIL_BACKEND"] = "console"
+os.environ["DEV_MODE"] = "true"  # console mail only counts as enabled in dev mode
 os.environ["ADMIN_EMAILS"] = "admin@voorbeeld.nl"
 os.environ["PLANNING_EMAIL"] = "planning@voorbeeld.nl"
 
@@ -50,6 +51,16 @@ def login(client: TestClient, user: User) -> TestClient:
     r = client.post(path, data={"next": ""}, follow_redirects=False)
     assert r.status_code == 303
     mail.outbox.clear()
+    return client
+
+
+def join(client: TestClient, name: str) -> TestClient:
+    from app import auth
+
+    with SessionLocal() as s:
+        code = auth.join_code(s)
+    r = client.post(f"/join/{code}", data={"name": name}, follow_redirects=False)
+    assert r.status_code == 303, r.text
     return client
 
 

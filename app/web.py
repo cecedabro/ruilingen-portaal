@@ -58,6 +58,8 @@ def render(
     **ctx,
 ):
     settings = get_settings()
+    if settings.dev_mode:  # pick up CSS/JS edits without a restart
+        ctx["static_v"] = _static_version()
     ctx.update(
         request=request,
         user=user,
