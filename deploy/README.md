@@ -1,144 +1,105 @@
-# Deploying to the homelab
+# Deployment
 
-The app runs on the k3s homelab (repo `cecedabro/homelab`), deployed by Flux, public at
-**https://ruilingen.app** through the existing Cloudflare tunnel.
+**Live** at https://ruilingen.app, on the k3s homelab, deployed by Flux.
+
+- **Live manifests:** [`cecedabro/homelab`](https://github.com/cecedabro/homelab) →
+  `apps/ruilingen/` and `apps/network-policies/ruilingen.yaml`.
+- **`deploy/homelab/` here is only a reference copy** of those. Changing it deploys nothing; the
+  homelab repo has to be changed separately (see [Manifest changes](#manifest-changes)).
+
+## How a release reaches the cluster
 
 ```
-git tag v0.1.0 ─► GitHub Actions ─► ghcr.io/cecedabro/ruilingen-portaal:0.1.0
-                                              │
-homelab repo: apps/ruilingen/deployment.yaml ─┘ (image tag) ─► Flux ─► namespace ruilingen
-                                                                          │ Service :80
-Cloudflare tunnel: ruilingen.app ─► http://ruilingen.ruilingen.svc.cluster.local ─┘
+git tag vX.Y.Z && git push origin vX.Y.Z
+   │
+   ▼  GitHub Actions (.github/workflows/ci.yml): tests, then builds + pushes
+ghcr.io/cecedabro/ruilingen-portaal:X.Y.Z   (also :X.Y and :latest)
+   │
+   ▼  Flux ImageRepository scans ghcr every 5 min; ImagePolicy picks the newest ^X.Y.Z$ (semver >= 0.1.0)
+Flux ImageUpdateAutomation commits the new tag to cecedabro/homelab (author: fluxcdbot)
+   │
+   ▼  normal Flux sync
+namespace ruilingen: pod recreated → migrations run → app starts
 ```
 
-`deploy/homelab/` mirrors the homelab repo layout: copy `apps/ruilingen/` and
-`apps/network-policies/ruilingen.yaml` into it as is.
+- **Deploys are release-only.** Pushes to `main` build images (`main-<timestamp>-<sha>`,
+  `main`, `sha-<sha>`) but do **not** deploy. Only a full `X.Y.Z` image tag does.
+- Expect the new version live within ~5–10 minutes of the image appearing.
+- Renovate is disabled for this image; Flux image automation does the bump.
+- Flux config: `homelab/apps/flux/image-automation.yaml`.
 
-## One-time setup
+### Releasing
+1. Make sure `main` is green in CI.
+2. Write the release notes in [`CHANGELOG.md`](../CHANGELOG.md). Call out explicitly:
+   - **schema change** (rollback then needs a database restore, see below)
+   - **new secret key** (must be in OpenBao *before* the release, see below)
+   - **manifest change** (new env var, port, probe, volume, ...)
+3. Tag and push:
+   ```bash
+   git tag v0.3.0 && git push origin v0.3.0
+   ```
+4. Check: `kubectl -n ruilingen get pods` and https://ruilingen.app/healthz → `ok`.
 
-### 1. Domain in Cloudflare
-`ruilingen.app` must be a zone in the same Cloudflare account as the tunnel: add the site in
-Cloudflare (Free plan) and set the registrar's nameservers to the two Cloudflare gives you.
-`.app` is HSTS-preloaded (HTTPS only); Cloudflare's edge certificate covers that.
+### Rollback
+Pin the previous tag in `homelab/apps/ruilingen/deployment.yaml` (and suspend the
+ImageUpdateAutomation, or Flux bumps it back to the newest release). Migrations only go
+forward: **if the bad release changed the schema, also restore the database** from the
+Longhorn backup (nightly, 7 kept) taken before it. The [changelog](../CHANGELOG.md) says which
+releases changed the schema.
 
-Recommended zone settings: SSL/TLS → Edge Certificates → **Always Use HTTPS** on.
-Optional: Security → WAF → a rate-limiting rule on `/login` (e.g. 10 requests/minute per IP).
-The app already limits login mails per address.
+## Runtime contract
+Things the cluster relies on. Changing any of them is a manifest change.
 
-### 2. Mail provider (optional, can be done later)
-Without mail, everything works: people join with just their name via the group link. Mail
-adds optional email notifications and email login. The app speaks plain SMTP, so any provider works. The manifests assume **Resend**
-(free: 3,000 mails/month, 100/day). For Brevo instead, set `SMTP_HOST=smtp-relay.brevo.com`.
-
-1. Create an account, add the domain `ruilingen.app`.
-2. Add the DNS records it shows (SPF `TXT`, DKIM `TXT`/`CNAME`, and a return-path `MX` on a
-   subdomain) in Cloudflare DNS, **DNS-only** (grey cloud). Wait until the provider says "verified".
-3. Add a DMARC record: `_dmarc.ruilingen.app TXT "v=DMARC1; p=quarantine; rua=mailto:<you>"`.
-4. Create an API key with "sending access" only. That is the SMTP password (username `resend`).
-
-### 3. Secrets in OpenBao
-In the OpenBao UI create `secret/ruilingen/app` with these keys:
-
-| Key | Value |
+| What | Value |
 |---|---|
-| `SESSION_SECRET` | `openssl rand -hex 32` (required) |
-| `PLANNING_EMAIL` | the real planning address |
-| `SMTP_USERNAME` | only with mail: `resend` |
-| `SMTP_PASSWORD` | only with mail: the Resend API key |
-| `ADMIN_EMAILS` | only with mail: your address (made admin at startup) |
+| Replicas / strategy | exactly **1**, **Recreate** (SQLite on a RWO Longhorn volume) |
+| Port | **8000** (Service `ruilingen` :80 → 8000) |
+| Health | `GET /healthz` → 200 `ok`, **no auth** (readiness + liveness probes, Homepage status dot) |
+| User / filesystem | non-root **UID 10001**, **read-only root filesystem**; only `/data` (PVC) and `/tmp` (emptyDir) writable |
+| Database | `sqlite:////data/ruilingen.db`; migrations run at container start, forward only |
+| Proxy | Cloudflare tunnel: plain HTTP from cloudflared with `X-Forwarded-Proto/For`. The entrypoint keeps `--proxy-headers --forwarded-allow-ips='*'`, so `request.client.host` is the real client IP (from `X-Forwarded-For`); use that for any per-IP rate limiting |
+| `BASE_URL` | `https://ruilingen.app` |
+| `MAIL_BACKEND` | `none` (for now) |
 
-### 4. Container image
-```bash
-git tag v0.1.0 && git push origin v0.1.0
-```
-Image: `ghcr.io/cecedabro/ruilingen-portaal` (public, inherits the repo's visibility).
+### Secrets
+From OpenBao `secret/ruilingen/app` via External Secrets (`envFrom` the `ruilingen-app` Secret).
 
-| Tag | When | Use |
-|---|---|---|
-| `0.2.0`, `0.2`, `latest` | `git tag v0.2.0` | pinned releases (Renovate) |
-| `main-<YYYYMMDDHHmmss>-<sha>` | every push to `main` | Flux image automation (sortable) |
-| `main`, `sha-<sha>` | every push to `main` | manual testing |
+| Key | Status |
+|---|---|
+| `SESSION_SECRET` | set. Never rotate casually: it logs everyone out, and people without an email can only get back in with an admin-made link |
+| `PLANNING_EMAIL` | set |
+| `SMTP_USERNAME`, `SMTP_PASSWORD`, `ADMIN_EMAILS` | not set; only needed once mail is enabled |
 
-Flux image automation (needs the image-reflector + image-automation controllers):
-```yaml
-apiVersion: image.toolkit.fluxcd.io/v1beta2
-kind: ImageRepository
-metadata: {name: ruilingen, namespace: flux-system}
-spec: {image: ghcr.io/cecedabro/ruilingen-portaal, interval: 5m}
----
-apiVersion: image.toolkit.fluxcd.io/v1beta2
-kind: ImagePolicy
-metadata: {name: ruilingen, namespace: flux-system}
-spec:
-  imageRepositoryRef: {name: ruilingen}
-  filterTags: {pattern: '^main-(?P<ts>[0-9]+)-[a-f0-9]+$', extract: '$ts'}
-  policy: {numerical: {order: asc}}
-```
-and mark the image line in `deployment.yaml` with
-`# {"$imagepolicy": "flux-system:ruilingen"}` plus an `ImageUpdateAutomation` that commits to
-the homelab repo.
+**A new required secret key must be added in OpenBao before the release that needs it**, or the
+pod fails to start. Say so in the release notes.
 
-### 5. Homelab repo
-1. Copy `deploy/homelab/apps/ruilingen/` → `homelab/apps/ruilingen/` and
-   `deploy/homelab/apps/network-policies/ruilingen.yaml` → `homelab/apps/network-policies/`.
-2. Add to `homelab/apps/kustomization.yaml`:
-   ```yaml
-     # secrets plumbing
-     - ruilingen/externalsecret.yaml
-     # workloads not managed by Helm
-     - ruilingen/namespace.yaml
-     - ruilingen/pvc.yaml
-     - ruilingen/deployment.yaml
-     # network policies
-     - network-policies/ruilingen.yaml
-   ```
-   (`namespace.yaml` must come before the others; kustomize orders Namespaces first anyway.)
-3. Add a Renovate rule to `homelab/renovate.json` so a new app release is proposed right away
-   instead of on Saturday:
-   ```json
-   {
-     "description": "Own app: deploy new releases straight away",
-     "matchPackageNames": ["ghcr.io/cecedabro/ruilingen-portaal"],
-     "schedule": ["at any time"],
-     "automerge": true
-   }
-   ```
-   Leave `automerge` out if you'd rather click merge yourself.
-4. Commit + push. Check: `kubectl -n ruilingen get pods,externalsecret,pvc`.
-
-### 6. Tunnel route
-Cloudflare Zero Trust → Networks → Tunnels → `k3s-homelab` → Public hostnames → Add:
-- Hostname: `ruilingen.app` (no subdomain)
-- Service: `HTTP` → `ruilingen.ruilingen.svc.cluster.local:80`
-
-Then open https://ruilingen.app/healthz → `ok`.
-
-### 7. First admin and the join link
-No mail needed:
-```bash
-kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli admin-link "Your Name"
-```
-prints a one-time link (60 min). Open it on your phone: you're logged in as admin. On
-**Beheer** you'll find the **join link** to post in the WhatsApp group (also:
-`python -m app.cli join-link`). If it leaks, "Nieuwe link" there invalidates the old one.
-Someone lost their phone? Beheer → their name → **Inloglink**, send it to them privately.
-
-## Releasing a new version
-```bash
-git tag v0.2.0 && git push origin v0.2.0
-```
-CI tests, builds and pushes `:0.2.0`; Renovate opens (and with automerge, merges) the bump in the
-homelab repo; Flux rolls it out. Migrations run automatically at container start.
-Rollback: set the previous tag in `homelab/apps/ruilingen/deployment.yaml`. Note: migrations
-don't run backwards, so for a release with a schema change, restore the Longhorn backup too.
+## Manifest changes
+When a release needs one (new env var, new secret key, different port/probe, ...):
+1. Update `deploy/homelab/` here, in the same PR as the code.
+2. Mention it in the release notes.
+3. Make the same change in the homelab repo **before or with** the release. Keep the Flux marker
+   on the image line: `image: ghcr.io/cecedabro/ruilingen-portaal:X.Y.Z # {"$imagepolicy": "flux-system:ruilingen"}`
 
 ## Operations
-- Logs: `kubectl -n ruilingen logs deploy/ruilingen` (mail errors show up here).
-- Database shell (read-only peek):
-  `kubectl -n ruilingen exec -it deploy/ruilingen -- python -c "import sqlite3; ..."`.
-  The image has no `sqlite3` CLI on purpose. For real surgery, scale to 0 and work on a copy.
-- Backups: the volume is in Longhorn's default group → nightly backup to the NAS (7 kept).
-- Restart: `kubectl -n ruilingen delete pod -l app=ruilingen` (plain manifest, see homelab ops
-  notes on why not `rollout restart`).
-- If the home server is down the site is down: colleagues fall back to the WhatsApp group.
-  Consider an uptime check (e.g. ntfy + a free external monitor on `/healthz`).
+- **First admin / lost admin access** (no mail needed):
+  ```bash
+  kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli admin-link "Your Name"
+  ```
+  prints a one-time login link (60 min).
+- **Join link** for the group chat: on the Beheer page, or
+  `kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli join-link`.
+- **Logs:** `kubectl -n ruilingen logs deploy/ruilingen`.
+- **Restart:** `kubectl -n ruilingen delete pod -l app=ruilingen`.
+- **Backups:** the PVC is in Longhorn's default group: nightly backup to the NAS, 7 kept.
+- **Database peek:** the image has no `sqlite3` CLI; use
+  `kubectl -n ruilingen exec deploy/ruilingen -- python -c "import sqlite3; ..."`.
+  For real surgery, scale to 0 and work on a copy.
+
+## Enabling mail later
+Optional: adds email notifications and email login for people who add an address.
+1. Mail provider (e.g. Resend) with `ruilingen.app` verified: SPF/DKIM/DMARC records in
+   Cloudflare DNS (DNS-only).
+2. OpenBao: add `SMTP_USERNAME`, `SMTP_PASSWORD` (and optionally `ADMIN_EMAILS`).
+3. Homelab `deployment.yaml`: `MAIL_BACKEND=smtp` and uncomment `MAIL_FROM`, `SMTP_HOST`,
+   `SMTP_PORT`.
+No app release is needed for this.

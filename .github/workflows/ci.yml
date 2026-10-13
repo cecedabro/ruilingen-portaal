@@ -1,7 +1,9 @@
 # Tests on every push/PR. On main and on version tags it also builds the image and pushes it to
 # ghcr.io/cecedabro/ruilingen-portaal:
-#   push to main  -> :main, :sha-<short> and :main-<YYYYMMDDHHmmss>-<short> (sortable, for Flux)
-#   tag v1.2.3    -> :1.2.3, :1.2 and :latest   (these are what the homelab deploys)
+#   push to main  -> :main, :sha-<short>, :main-<YYYYMMDDHHmmss>-<short>   (built, NOT deployed)
+#   tag v1.2.3    -> :1.2.3, :1.2, :latest
+# The homelab's Flux image automation deploys the newest full X.Y.Z tag (see deploy/README.md),
+# so keep the {{version}} tag below.
 name: ci
 
 on:

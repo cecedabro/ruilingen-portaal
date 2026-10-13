@@ -103,17 +103,14 @@ Alternatives considered: SvelteKit + SQLite (nice DX, but a new framework), Next
 (too heavy for this).
 
 ## 8. Hosting and deployment
-Pilot runs on the owner's home Kubernetes cluster (k3s), which already has:
-- **Flux** GitOps (apps are HelmReleases/manifests in a separate homelab repo)
-- **Cloudflare Tunnel** for public access (no open ports at home), Cloudflare DNS
-- **Longhorn** volumes with nightly backups (an SQLite file on a PVC is covered)
-- **OpenBao + External Secrets Operator** for secrets (mail API key, session secret)
-- **Renovate** for dependency updates, **ntfy** for alerts
+Live at **https://ruilingen.app** on the owner's home Kubernetes cluster (k3s): Flux GitOps,
+Cloudflare Tunnel, Longhorn volume (nightly backups) for the SQLite file, OpenBao + External
+Secrets for secrets.
 
-Plan: GitHub Actions builds a container image → `ghcr.io/cecedabro/ruilingen-portaal` → deployed
-by Flux in the homelab → public at **ruilingen.app** through the Cloudflare tunnel.
-Note: `.app` domains are HTTPS-only (HSTS preloaded); Cloudflare handles the certificate at the
-edge, so that's fine.
+**Deploys are release-only:** `git tag vX.Y.Z && git push origin vX.Y.Z` → CI pushes image
+`X.Y.Z` → Flux image automation bumps the homelab repo and deploys it. Pushes to `main` build
+images but don't deploy. The runtime contract, secrets and release checklist are in
+[`deploy/README.md`](deploy/README.md); release notes in [`CHANGELOG.md`](CHANGELOG.md).
 
 Be honest with users that this is a **pilot on a home server**: if it's down, they fall back to
 WhatsApp.
@@ -129,13 +126,12 @@ WhatsApp.
 
 ## 10. Status and next steps
 - [x] Clickable prototype (demo for the department committee)
-- [x] Scaffold FastAPI app (models, magic-link login, the two boards, reactions, confirm, email draft)
-- [x] Dockerfile + GitHub Actions → ghcr.io
-- [x] Kubernetes manifests for the homelab ([`deploy/`](deploy/README.md))
+- [x] FastAPI app (boards, reactions, confirm, planning email, join-link login)
+- [x] Container image + CI → ghcr.io
+- [x] Live at ruilingen.app (homelab, Flux, Cloudflare tunnel), 0.2.0
 - [ ] Owner answers the open questions (defaults are in place, see below)
-- [ ] Domain `ruilingen.app` in Cloudflare + mail service account (Resend) with DNS records
-- [ ] Deploy to the homelab via Flux + Cloudflare tunnel ([runbook](deploy/README.md))
 - [ ] Pilot with a few colleagues
+- [ ] Optional: mail provider for email notifications
 
 ## 11. Open questions
 See [`docs/open-questions.md`](docs/open-questions.md).

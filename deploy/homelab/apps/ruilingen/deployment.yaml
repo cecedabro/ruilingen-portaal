@@ -1,7 +1,9 @@
 # Ruilingen (shift swap board), public at https://ruilingen.app through the Cloudflare tunnel.
 # Source + image: https://github.com/cecedabro/ruilingen-portaal
 # Exactly one replica, Recreate: the database is a SQLite file on a RWO Longhorn volume.
-# New version: bump the image tag (Renovate opens the PR when a v* tag is pushed in the app repo).
+# New version: Flux image automation (apps/flux/image-automation.yaml) bumps the image line below
+# to every new RELEASE (vX.Y.Z git tag in the app repo -> image tag X.Y.Z) and commits that here.
+# Main builds don't deploy. Keep the $imagepolicy marker on the image line.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,7 +33,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ruilingen
-          image: ghcr.io/cecedabro/ruilingen-portaal:0.1.0
+          image: ghcr.io/cecedabro/ruilingen-portaal:0.2.0 # {"$imagepolicy": "flux-system:ruilingen"}
           ports:
             - name: http
               containerPort: 8000
@@ -45,12 +47,12 @@ spec:
             # SMTP_* lines and put SMTP_USERNAME/SMTP_PASSWORD in OpenBao.
             - name: MAIL_BACKEND
               value: none
-            # - name: MAIL_FROM
-            #   value: Ruilingen <noreply@ruilingen.app>
-            # - name: SMTP_HOST
-            #   value: smtp.resend.com
-            # - name: SMTP_PORT
-            #   value: "587"
+              # - name: MAIL_FROM
+              #   value: Ruilingen <noreply@ruilingen.app>
+              # - name: SMTP_HOST
+              #   value: smtp.resend.com
+              # - name: SMTP_PORT
+              #   value: "587"
           envFrom:
             - secretRef:
                 name: ruilingen-app
