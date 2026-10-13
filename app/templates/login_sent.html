@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Check je mail · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div class="form narrow">
+  <h2>Check je mail</h2>
+  <p>Als <b>{{ email }}</b> bij ons bekend is, staat er nu een mail met een inloglink in je inbox. De link werkt {{ settings.login_link_minutes }} minuten.</p>
+  <p class="meta">Niets gekregen? Kijk ook in je spam, of <a href="/login">probeer het opnieuw</a>.</p>
+  {% if dev_link %}<p class="flash ok">Ontwikkelmodus: <a href="{{ dev_link }}">{{ dev_link }}</a></p>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% macro code(c, sm=false) -%}
+<span class="code{{ ' sm' if sm }}" title="{{ explain(c) }}">{% for ch in c %}<span class="k-{{ ch }}">{{ ch }}</span>{% endfor %}</span>
+{%- endmacro %}
+
+{% macro legend() -%}
+<div class="legend">
+  {% for k, v in PARTS.items() %}<div>{{ code(k, true) }}<span>{{ v }}</span></div>{% endfor %}
+  <div><span class="meta">Volgorde = volgorde in de dienst, bv. HG is eerst bar, na de pauze garderobe.</span></div>
+</div>
+{%- endmacro %}
+
+{# One listing as a ticket stub. `rank` is shown on the boards, `extra` is appended inside the body. #}
+{% macro card(l, user, rank=none, next="", extra="") -%}
+{% set mine = l.user_id == user.id %}
+{% set pending = l.pending_reactions %}
+{% set my_reaction = pending | selectattr("user_id", "equalto", user.id) | first %}
+<article class="card" id="l{{ l.id }}">
+  <div class="stub">
+    {% if rank %}<span class="rank">#{{ rank }}</span>{% endif %}
+    {% if l.kind == "offer" %}{{ code(l.shift_type) }}
+    {% else %}<div class="types">{% for t in l.wanted_type_list %}{{ code(t, true) }}{% endfor %}</div>{% endif %}
+  </div>
+  <div class="body">
+    <div class="row">
+      <span class="when">{{ fmt_date(l.date) }}</span>
+      {% if l.start %}<span class="time">{{ l.start }}–{{ l.end }}</span>{% else %}<span class="meta">tijd nog open</span>{% endif %}
+    </div>
+    <div class="row">
+      <span>{% if l.kind == "offer" %}{{ "Jouw dienst" if mine else l.user.name ~ " geeft weg" }}{% else %}{{ "Jij zoekt een dienst" if mine else l.user.name ~ " zoekt" }}{% endif %}</span>
+      <span class="meta">geplaatst <span class="mono">{{ stamp(l.created_at) }}</span></span>
+    </div>
+    {% if l.kind == "offer" %}<div class="codeexpl">{{ explain(l.shift_type) }}</div>
+    {% else %}<div class="codeexpl">Zoekt: {{ l.wanted_type_list | join(", ") }}</div>{% endif %}
+    {% if l.note %}<p class="note">{{ l.note }}</p>{% endif %}
+    <div class="actions">
+      {% if mine %}
+        <span class="pill {{ 'wait' if pending else 'off' }}">{{ pending | length }} reactie{{ '' if pending | length == 1 else 's' }}</span>
+        {% if not extra %}<a class="btn" href="/mijn#l{{ l.id }}">Bekijk in Mijn ruilen</a>{% endif %}
+      {% elif my_reaction %}
+        <span class="pill wait">Je hebt gereageerd · wacht op {{ l.user.first_name }}</span>
+        <form class="inline" method="post" action="/reactions/{{ my_reaction.id }}/withdraw">
+          <input type="hidden" name="next" value="{{ next }}">
+          <button class="linkish" type="submit">Intrekken</button>
+        </form>
+      {% elif l.kind == "offer" %}
+        <form class="inline" method="post" action="/listings/{{ l.id }}/react">
+          <input type="hidden" name="next" value="{{ next }}">
+          <button class="btn primary" type="submit">Ik neem deze dienst</button>
+        </form>
+        {% if pending %}<span class="meta">{{ pending | length }} andere reactie{{ '' if pending | length == 1 else 's' }}</span>{% endif %}
+      {% else %}
+        <details class="offer">
+          <summary class="btn primary">Ik heb een dienst voor je</summary>
+          <form class="offerform" method="post" action="/listings/{{ l.id }}/react">
+            <input type="hidden" name="next" value="{{ next }}">
+            <div class="field"><label for="os{{ l.id }}">Begin</label><input type="time" id="os{{ l.id }}" name="offer_start" required value="18:00"></div>
+            <div class="field"><label for="oe{{ l.id }}">Eind</label><input type="time" id="oe{{ l.id }}" name="offer_end" required value="23:00"></div>
+            <div class="field"><label for="ot{{ l.id }}">Soort</label>
+              <select id="ot{{ l.id }}" name="offer_type">
+                {% for t in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
+                {% for t in SHIFT_TYPES if t not in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
+              </select></div>
+            <div class="actions"><button class="btn primary" type="submit">Aanbieden aan {{ l.user.first_name }}</button></div>
+          </form>
+        </details>
+      {% endif %}
+    </div>
+    {{ extra }}
+  </div>
+</article>
+{%- endmacro %}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"scrollIntoViewOnBoost":false,"historyCacheSize":0}'>
+<meta name="robots" content="noindex">
+<title>{% block title %}{{ settings.app_name }}{% endblock %}</title>
+<link rel="icon" href="/static/icon.svg?v={{ static_v }}" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css?v={{ static_v }}">
+<script src="/static/htmx.min.js?v={{ static_v }}" defer></script>
+<script src="/static/app.js?v={{ static_v }}" defer></script>
+</head>
+<body hx-boost="true">
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <a class="brand" href="/"><h1>{{ settings.app_name }}</h1><span class="tag">pilot</span></a>
+      {% if user %}
+      <div class="who">
+        <a class="name" href="/account" title="Je account">{{ user.name }}</a>
+        <span hx-get="/bell" hx-trigger="every 60s" hx-swap="innerHTML">{% include "_bell.html" %}</span>
+      </div>
+      {% endif %}
+    </div>
+    {% if user %}
+    <nav class="tabs" aria-label="Onderdelen">
+      <a href="/aangeboden" {% if tab == "offer" %}aria-current="page"{% endif %}>Aangeboden<span class="n">{{ n_offer }}</span></a>
+      <a href="/gezocht" {% if tab == "wanted" %}aria-current="page"{% endif %}>Gezocht<span class="n">{{ n_wanted }}</span></a>
+      <a href="/mijn" {% if tab == "mijn" %}aria-current="page"{% endif %}>Mijn ruilen{% if n_todo %}<span class="n" title="Reacties die op jou wachten">{{ n_todo }}</span>{% endif %}</a>
+      <a href="/plaatsen" {% if tab == "plaatsen" %}aria-current="page"{% endif %}>+ Plaatsen</a>
+    </nav>
+    {% endif %}
+  </div>
+</header>
+<main class="wrap" id="main">
+  {% for kind, text in messages %}
+  <div class="flash {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ text }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+  <footer class="foot">
+    <span>Dit is een pilot op een thuisserver. Ligt hij plat? Dan gewoon via de groepsapp.</span>
+    <a href="/privacy">Wat we bewaren</a>
+    {% if user %}
+      {% if user.is_admin %}<a href="/beheer">Beheer</a>{% endif %}
+      <form class="inline" method="post" action="/logout"><button class="linkish" type="submit">Uitloggen</button></form>
+    {% endif %}
+  </footer>
+</main>
+</body>
+</html>

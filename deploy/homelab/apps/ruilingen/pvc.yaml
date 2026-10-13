@@ -1,0 +1,12 @@
+# The SQLite database. Longhorn's daily-backup job covers it (default group).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ruilingen-data
+  namespace: ruilingen
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi

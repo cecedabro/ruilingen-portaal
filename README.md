@@ -129,12 +129,54 @@ WhatsApp.
 
 ## 10. Status and next steps
 - [x] Clickable prototype (demo for the department committee)
-- [ ] Owner answers the open questions below
-- [ ] Scaffold FastAPI app (models, magic-link login, the two boards, reactions, confirm, email draft)
-- [ ] Mail service account + domain `ruilingen.app` (owner buys it, about €8/year)
-- [ ] Dockerfile + GitHub Actions → ghcr.io
-- [ ] Deploy to the homelab via Flux + Cloudflare tunnel
+- [x] Scaffold FastAPI app (models, magic-link login, the two boards, reactions, confirm, email draft)
+- [x] Dockerfile + GitHub Actions → ghcr.io
+- [x] Kubernetes manifests for the homelab ([`deploy/`](deploy/README.md))
+- [ ] Owner answers the open questions (defaults are in place, see below)
+- [ ] Domain `ruilingen.app` in Cloudflare + mail service account (Resend) with DNS records
+- [ ] Deploy to the homelab via Flux + Cloudflare tunnel ([runbook](deploy/README.md))
 - [ ] Pilot with a few colleagues
 
 ## 11. Open questions
 See [`docs/open-questions.md`](docs/open-questions.md).
+
+## 12. Development
+```bash
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+cp .env.example .env                    # DEV_MODE=true: login link shown on screen, mails in the log
+.venv/bin/alembic upgrade head          # creates ruilingen.db
+.venv/bin/python -m scripts.seed_demo   # optional: the prototype's made-up colleagues
+.venv/bin/uvicorn app.main:app --reload # http://localhost:8000
+.venv/bin/pytest                        # tests
+.venv/bin/ruff check . && .venv/bin/ruff format .
+```
+Log in with a seeded address such as `daan.bakker@voorbeeld.nl` (admin in the seed).
+
+Changing the models: edit `app/models.py`, then
+`.venv/bin/alembic revision --autogenerate -m "what changed"`, read the generated file, and commit it.
+
+### Layout
+| Path | What |
+|---|---|
+| `app/main.py` | routes (thin: parse the form, call a service, redirect) |
+| `app/services.py` | all swap rules: posting, reacting, confirming, removing, cleanup |
+| `app/auth.py` | magic-link login, session cookie, CSRF origin check |
+| `app/models.py` | database tables |
+| `app/shifts.py` | shift codes, Dutch date formatting, the planning email template |
+| `app/mail.py` | outgoing mail (SMTP or console) |
+| `app/templates/`, `app/static/` | Jinja2 pages, CSS (from the prototype), HTMX, fonts |
+| `migrations/` | Alembic migrations |
+| `deploy/` | homelab manifests + deployment runbook |
+
+### Design notes
+- **First come, enforced by the database.** Reactions are ordered by `(created_at, id)`. One
+  open reaction per person per listing is a partial unique index. Confirming flips the listing
+  with `UPDATE ... WHERE status='open'`, so two simultaneous confirms can't both win
+  (there is a test that races two threads).
+- **Magic links need a click.** The link in the mail opens a page with a button; mail scanners
+  that open links can't burn the token. Tokens are stored hashed, single-use, 20 minutes.
+- **No JavaScript needed.** Every action is a normal form POST → redirect. HTMX `hx-boost` only
+  makes it feel instant; `app.js` only adds the "copy" button.
+- **Privacy.** Self-hosted fonts and scripts (no Google, no CDN), strict CSP, no analytics.
+  Old data is deleted automatically (`RETENTION_DAYS`, default 6 weeks after the shift date);
+  users can delete their account themselves.

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Account · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<form class="form" method="post" action="/account">
+  <h2>Je gegevens</h2>
+  <div class="grid2">
+    <div class="field"><label for="name">Naam</label>
+      <input id="name" name="name" required maxlength="80" value="{{ user.name }}" autocomplete="name">
+      <small>Zo zien collega's en planning je.</small></div>
+    <div class="field"><label>E-mailadres</label><input value="{{ user.email }}" disabled>
+      <small>Wijzigen? Vraag een beheerder.</small></div>
+  </div>
+  <label class="check"><input type="checkbox" name="email_notifications" value="true" {% if user.email_notifications %}checked{% endif %}>
+    <span>Stuur mij een mail bij een reactie, als ik gekozen ben, of als een dienst weg is.</span></label>
+  <div class="actions"><button class="btn primary" type="submit">Opslaan</button></div>
+</form>
+
+<div class="form">
+  <h2>Inloggen</h2>
+  <p class="meta">Telefoon kwijt of ingelogd op een computer van een ander? Log overal uit.</p>
+  <form method="post" action="/account/logout-everywhere"><button class="btn" type="submit">Overal uitloggen</button></form>
+</div>
+
+<form class="form" method="post" action="/account/delete">
+  <h2>Account verwijderen</h2>
+  <p class="meta">Dit verwijdert je account, je geplaatste diensten, je reacties en je meldingen. Open diensten worden weggehaald en wie erop reageerde krijgt bericht. Dit kan niet ongedaan worden.</p>
+  <div class="field"><label for="confirm">Typ <b>verwijder</b> om te bevestigen</label>
+    <input id="confirm" name="confirm" autocomplete="off"></div>
+  <div class="actions"><button class="btn danger" type="submit">Account verwijderen</button></div>
+</form>
+{% endblock %}

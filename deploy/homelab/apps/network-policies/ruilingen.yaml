@@ -1,0 +1,61 @@
+# Ingress isolation for namespace "ruilingen" (k3s built-in NetworkPolicy controller).
+# Allowed in: pods in the same namespace, Traefik, Homepage (status checks), monitoring,
+# the LAN (192.168.50.0/24) and Tailscale (100.64.0.0/10), and each node's flannel/cni0
+# address (10.42.<n>.0/.1: kube-proxy SNAT for LoadBalancer/NodePort traffic and kubelet probes) and the Cloudflare tunnel (public site: ruilingen.app).
+# Everything else (other app namespaces, a compromised pod elsewhere) is refused.
+# Egress is not restricted. Undo: kubectl delete -f this file.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-ingress
+  namespace: ruilingen
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector: {}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: traefik
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: homepage
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cloudflare
+    - ipBlock:
+        cidr: 192.168.50.0/24
+    - ipBlock:
+        cidr: 100.64.0.0/10
+    - ipBlock:
+        cidr: 10.42.0.0/32
+    - ipBlock:
+        cidr: 10.42.0.1/32
+    - ipBlock:
+        cidr: 10.42.1.0/32
+    - ipBlock:
+        cidr: 10.42.1.1/32
+    - ipBlock:
+        cidr: 10.42.2.0/32
+    - ipBlock:
+        cidr: 10.42.2.1/32
+    - ipBlock:
+        cidr: 10.42.4.0/32
+    - ipBlock:
+        cidr: 10.42.4.1/32
+    - ipBlock:
+        cidr: 10.42.5.0/32
+    - ipBlock:
+        cidr: 10.42.5.1/32
+    - ipBlock:
+        cidr: 10.42.7.0/32
+    - ipBlock:
+        cidr: 10.42.7.1/32

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Beheer · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<form class="form" method="post" action="/beheer/users">
+  <h2>Collega uitnodigen</h2>
+  <div class="grid2">
+    <div class="field"><label for="n">Naam</label><input id="n" name="name" required maxlength="80"></div>
+    <div class="field"><label for="e">E-mailadres</label><input id="e" name="email" type="email" required></div>
+  </div>
+  <label class="check"><input type="checkbox" name="send_invite" value="true" checked><span>Stuur een uitnodigingsmail</span></label>
+  <div class="actions"><button class="btn primary" type="submit">Toevoegen</button></div>
+</form>
+
+<div class="form">
+  <h2>Collega's ({{ users | selectattr("is_active") | list | length }} actief)</h2>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Naam</th><th>E-mail</th><th>Laatst ingelogd</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.name }}{% if u.is_admin %} <span class="pill ok">beheer</span>{% endif %}{% if not u.is_active %} <span class="pill off">geblokkeerd</span>{% endif %}</td>
+      <td>{{ u.email }}</td>
+      <td class="mono meta">{{ stamp(u.last_login_at) if u.last_login_at else "nooit" }}</td>
+      <td>{% if u.id != user.id %}<div class="actions">
+        <form class="inline" method="post" action="/beheer/users/{{ u.id }}/toggle"><button class="linkish" type="submit">{{ "Blokkeren" if u.is_active else "Activeren" }}</button></form>
+        <form class="inline" method="post" action="/beheer/users/{{ u.id }}/admin"><button class="linkish" type="submit">{{ "Geen beheer" if u.is_admin else "Maak beheerder" }}</button></form>
+      </div>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="meta">Blokkeren logt iemand direct uit; bestaande ruilen blijven staan. Iemand helemaal weg? Laat diegene zelf het account verwijderen.</p>
+</div>
+{% endblock %}

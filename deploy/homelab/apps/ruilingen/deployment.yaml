@@ -1,0 +1,103 @@
+# Ruilingen (shift swap board), public at https://ruilingen.app through the Cloudflare tunnel.
+# Source + image: https://github.com/cecedabro/ruilingen-portaal
+# Exactly one replica, Recreate: the database is a SQLite file on a RWO Longhorn volume.
+# New version: bump the image tag (Renovate opens the PR when a v* tag is pushed in the app repo).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ruilingen
+  namespace: ruilingen
+  labels:
+    app: ruilingen
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ruilingen
+  template:
+    metadata:
+      labels:
+        app: ruilingen
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ruilingen
+          image: ghcr.io/cecedabro/ruilingen-portaal:0.1.0
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: BASE_URL
+              value: https://ruilingen.app
+            - name: DATABASE_URL
+              value: sqlite:////data/ruilingen.db
+            - name: MAIL_BACKEND
+              value: smtp
+            - name: MAIL_FROM
+              value: Ruilingen <noreply@ruilingen.app>
+            - name: SMTP_HOST
+              value: smtp.resend.com
+            - name: SMTP_PORT
+              value: "587"
+          envFrom:
+            - secretRef:
+                name: ruilingen-app
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 20m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ruilingen-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ruilingen
+  namespace: ruilingen
+  labels:
+    app: ruilingen
+spec:
+  selector:
+    app: ruilingen
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
