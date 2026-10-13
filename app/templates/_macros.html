@@ -27,7 +27,7 @@
 {%- endmacro %}
 
 {# One shift as a row. `show_date` when it isn't under a date heading (Mijn). #}
-{% macro shift(l, user, next="", extra="", show_date=false) -%}
+{% macro shift(l, user, next="", extra="", show_date=false, rank=none) -%}
 {% set mine = l.user_id == user.id %}
 {% set pending = l.pending_reactions %}
 {% set mine_r = pending | selectattr("user_id", "equalto", user.id) | first %}
@@ -37,6 +37,7 @@
     <div class="shead">
       <div class="who">
         {% if show_date %}<span class="date">{{ fmt_date(l.date) }}</span>{% endif %}
+        {% if rank %}<span class="rank" title="{{ rank }}e geplaatst">#{{ rank }}</span>{% endif %}
         <b>{{ "Jij" if mine else l.user.name }}</b>
         <span class="meta">{{ stamp(l.created_at) }}</span>
       </div>

@@ -10,11 +10,18 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - **Manifest changes**: must be made in the homelab repo (`apps/ruilingen/`) as well.
 
 ## Unreleased
+- Schema change: none
+- New secret keys: none
+- Manifest changes: none
+
+## 0.3.0 (2026-10-13)
 - Shifts: only date + type required; optional time or dagdeel, zaal, werkplek, opmerking.
 - Shift type shown as a single label; bottom tab bar on phones; light theme only for now.
 - New look: navy header, teal accent, boards grouped by date with the time on the left,
   zaal/werkplek/opmerking written out.
 - Filters: soort, deze/volgende week, dagdeel, zaal, nog vrij / al gereageerd.
+- Posting order stays visible: every shift shows #n (who posted first, over the whole board),
+  and "Volgorde: Eerst geplaatst" lists the board oldest-posting first.
 - Shifts someone already reacted to show "1 reactie · wacht op …"; others can still react
   as backup ("Reageer als 2e") and see their place in line.
 

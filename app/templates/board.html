@@ -4,7 +4,7 @@
 {% block content %}
 {% set path = "/aangeboden" if kind == "offer" else "/gezocht" %}
 <form class="filter" method="get" action="{{ path }}" data-autosubmit>
-  <details {% if flt.active %}open{% endif %}>
+  <details {% if flt.active or posted_order %}open{% endif %}>
     <summary>
       <span>Filter{% if flt.active %} <b class="count">{{ items | length }} van {{ total }}</b>{% endif %}</span>
       {% if flt.active %}<a class="linkish" href="{{ path }}">Wis</a>{% endif %}
@@ -14,17 +14,22 @@
       <label>Wanneer<select name="periode"><option value="">Altijd</option><option value="week" {% if flt.periode == "week" %}selected{% endif %}>Deze week</option><option value="volgende" {% if flt.periode == "volgende" %}selected{% endif %}>Volgende week</option></select></label>
       <label>Dagdeel<select name="dagdeel"><option value="">Hele dag</option>{% for p in DAYPARTS %}<option {% if flt.dagdeel == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
       <label>Zaal<select name="zaal"><option value="">Alle</option>{% for h in halls %}<option {% if flt.zaal | lower == h | lower %}selected{% endif %}>{{ h }}</option>{% endfor %}</select></label>
+      <label>Volgorde<select name="volgorde"><option value="">Op datum</option><option value="geplaatst" {% if posted_order %}selected{% endif %}>Eerst geplaatst</option></select></label>
       <label>Beschikbaar<select name="vrij"><option value="">Alles</option><option value="vrij" {% if flt.vrij == "vrij" %}selected{% endif %}>Nog vrij</option><option value="bezet" {% if flt.vrij == "bezet" %}selected{% endif %}>Al gereageerd</option></select></label>
       <button class="btn secondary noscript-only" type="submit">Toon</button>
     </div>
   </details>
 </form>
-{% if items %}
+{% if items and posted_order %}
+<div class="list">
+  {% for l in items %}{{ m.shift(l, user, next=here, show_date=true, rank=ranks[l.id]) }}{% endfor %}
+</div>
+{% elif items %}
 <div class="days">
   {% for day, group in items | groupby("date") %}
   <section class="day">
     <h2 class="dayhead">{{ fmt_date_long(day) | capitalize }}</h2>
-    {% for l in group %}{{ m.shift(l, user, next=here) }}{% endfor %}
+    {% for l in group %}{{ m.shift(l, user, next=here, rank=ranks[l.id]) }}{% endfor %}
   </section>
   {% endfor %}
 </div>

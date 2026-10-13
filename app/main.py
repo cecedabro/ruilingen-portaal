@@ -261,7 +261,11 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         q.get("periode", ""),
     )
     everything = services.open_listings(db, kind, today())
-    items = flt.apply(everything, today())
+    # Who posted first: rank over the whole board, so a filter doesn't change the numbers.
+    by_posting = sorted(everything, key=lambda lst: (lst.created_at, lst.id))
+    ranks = {lst.id: n for n, lst in enumerate(by_posting, start=1)}
+    posted_order = q.get("volgorde") == "geplaatst"
+    items = flt.apply(by_posting if posted_order else everything, today())
     halls = sorted({lst.hall for lst in everything if lst.hall}, key=str.lower)
     return render(
         request,
@@ -270,6 +274,8 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         user=user,
         kind=kind,
         items=items,
+        ranks=ranks,
+        posted_order=posted_order,
         total=len(everything),
         flt=flt,
         halls=halls,

@@ -669,6 +669,22 @@ def test_board_filters(people):
     assert _shown(s_client, "?soort=X&dagdeel=nacht") == {"a", "b", "c"}  # junk is ignored
 
 
+def test_posting_order_is_visible(people):
+    _, d = people["daan"]
+    _, n = people["noor"]
+    _offer(d, 9, "H", note="first-posted")
+    _offer(n, 2, "G", note="second-posted")
+    _, s_client = people["sanne"]
+    page = s_client.get("/aangeboden").text
+    # by date: the later shift comes last, but still carries #1
+    assert page.index("second-posted") < page.index("first-posted")
+    assert page.index("#2") < page.index("#1")
+    page = s_client.get("/aangeboden?volgorde=geplaatst").text
+    assert page.index("first-posted") < page.index("second-posted")
+    # filtering doesn't renumber
+    assert "#2" in s_client.get("/aangeboden?soort=G").text
+
+
 def test_board_is_ordered_by_shift_date_and_time(people):
     _, d = people["daan"]
     _offer(d, 5, "H", note="later")
