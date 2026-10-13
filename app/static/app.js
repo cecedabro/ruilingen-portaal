@@ -1,6 +1,18 @@
 // Small extras only; every page works without this file.
 "use strict";
 document.documentElement.classList.add("js");
+// Light/dark switch: flip instantly and remember it in a cookie the server also reads.
+document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+    var root = document.documentElement;
+    var next = root.dataset.theme === "dark" ? "light" : "dark";
+    root.dataset.theme = next;
+    var secure = location.protocol === "https:" ? "; secure" : "";
+    document.cookie = "theme=" + next + "; max-age=31536000; path=/; samesite=lax" + secure;
+    btn.setAttribute("aria-label", next === "dark" ? "Licht thema" : "Donker thema");
+  });
+});
 document.querySelectorAll("[data-copy]").forEach(function (btn) {
   if (!navigator.clipboard) return;
   btn.hidden = false;

@@ -14,6 +14,17 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.4.0 (2026-10-13)
+- Light/dark switch in the header, remembered per device (cookie); light stays the default.
+- Posting time removed from the boards (the #n posting order stays).
+- "Wanneer" filter is now a week calendar (monday–sunday) with selectable days, from today up
+  to the end of the latest published rooster (published tuesdays for the week after), or the
+  furthest posted shift if later. Each day shows how many shifts it has.
+
+- Schema change: none (rollback = just pin the previous image tag)
+- New secret keys: none
+- Manifest changes: none. Optional env `ROSTER_RELEASE_WEEKDAY` (default 1 = tuesday).
+
 ## 0.3.0 (2026-10-13)
 - Shifts: only date + type required; optional time or dagdeel, zaal, werkplek, opmerking.
 - Shift type shown as a single label; bottom tab bar on phones; light theme only for now.

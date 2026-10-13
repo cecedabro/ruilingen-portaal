@@ -6,6 +6,7 @@ every change on a fresh transaction and retries on such a conflict, and `accept`
 flips the listing with a conditional UPDATE, so a listing can never be given away twice.
 """
 
+import contextlib
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -400,6 +401,45 @@ def open_listings(db: Session, kind: Kind, today: date) -> list[Listing]:
     return items
 
 
+def roster_horizon(today: date, release_weekday: int) -> date:
+    """Last day covered by the latest published rooster: once this week's rooster for next
+    week is out (on `release_weekday`), that's next week's sunday, before that this sunday."""
+    sunday = today + timedelta(days=6 - today.weekday())
+    return sunday + timedelta(days=7) if today.weekday() >= release_weekday else sunday
+
+
+@dataclass
+class DayChoice:
+    day: date
+    selectable: bool  # false for days before today (shown greyed to keep the week aligned)
+    count: int  # shifts on the board that day
+    selected: bool
+
+
+def day_choices(
+    today: date, listings: list[Listing], selected: set[date], release_weekday: int
+) -> list[list[DayChoice]]:
+    """Whole weeks (monday–sunday) from this week up to the latest published rooster, or the
+    furthest shift someone posted, whichever is later (capped at 8 weeks)."""
+    last = roster_horizon(today, release_weekday)
+    if listings:
+        last = max(last, max(listing.date for listing in listings))
+    last = min(last, today + timedelta(weeks=8))
+    counts: dict[date, int] = {}
+    for listing in listings:
+        counts[listing.date] = counts.get(listing.date, 0) + 1
+    monday = today - timedelta(days=today.weekday())
+    weeks = []
+    while monday <= last:
+        week = []
+        for i in range(7):
+            d = monday + timedelta(days=i)
+            week.append(DayChoice(d, today <= d, counts.get(d, 0), d in selected))
+        weeks.append(week)
+        monday += timedelta(days=7)
+    return weeks
+
+
 @dataclass
 class BoardFilter:
     """Board filters, straight from the query string. Empty = no filter."""
@@ -408,28 +448,27 @@ class BoardFilter:
     dagdeel: str = ""  # ochtend / middag / avond
     zaal: str = ""
     vrij: str = ""  # "vrij" = nobody reacted yet, "bezet" = someone did
-    periode: str = ""  # "week" = this week, "volgende" = next week
+    dagen: frozenset[date] = frozenset()  # specific dates
 
     @classmethod
-    def parse(cls, soort="", dagdeel="", zaal="", vrij="", periode="") -> "BoardFilter":
+    def parse(cls, soort="", dagdeel="", zaal="", vrij="", dagen=()) -> "BoardFilter":
+        parsed = set()
+        for value in list(dagen)[:62]:
+            with contextlib.suppress(ValueError):
+                parsed.add(date.fromisoformat(value))
         return cls(
             soort=soort if soort in {"H", "G", "C", "P", "R", "I"} else "",
             dagdeel=dagdeel if dagdeel in DAYPARTS else "",
             zaal=" ".join(zaal.split())[:60],
             vrij=vrij if vrij in {"vrij", "bezet"} else "",
-            periode=periode if periode in {"week", "volgende"} else "",
+            dagen=frozenset(parsed),
         )
 
     @property
     def active(self) -> bool:
-        return any((self.soort, self.dagdeel, self.zaal, self.vrij, self.periode))
+        return any((self.soort, self.dagdeel, self.zaal, self.vrij, self.dagen))
 
-    def apply(self, items: list[Listing], today: date) -> list[Listing]:
-        monday = today - timedelta(days=today.weekday())
-        weeks = {
-            "week": (monday, monday + timedelta(6)),
-            "volgende": (monday + timedelta(7), monday + timedelta(13)),
-        }
+    def apply(self, items: list[Listing]) -> list[Listing]:
         out = []
         for listing in items:
             info = listing.info
@@ -444,10 +483,7 @@ class BoardFilter:
                 continue
             if self.vrij == "bezet" and not listing.pending_reactions:
                 continue
-            if (
-                self.periode
-                and not weeks[self.periode][0] <= listing.date <= weeks[self.periode][1]
-            ):
+            if self.dagen and listing.date not in self.dagen:
                 continue
             out.append(listing)
         return out

@@ -10,6 +10,15 @@
   --f-mono:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --r:10px; --tabbar:64px; color-scheme:light;
 }
+:root[data-theme="dark"]{
+  --bg:#0f1419; --surface:#171d24; --surface-2:#1c232b; --surface-3:#252d37; --line:#2e3742;
+  --ink:#e6e9ed; --ink-2:#c3c9d1; --muted:#8d97a3;
+  --nav:#0a0e13; --nav-ink:#e6e9ed;
+  --accent:#4fbfca; --accent-ink:#06282c; --accent-soft:#15323a;
+  --ok:#5fc996; --ok-bg:#163326; --warn:#f0c46b; --warn-bg:#3a2d12; --bad:#ec8a82; --bad-bg:#3a1c1a;
+  --label-bg:#4fbfca; --label-ink:#06282c;
+  color-scheme:dark;
+}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);padding-bottom:calc(var(--tabbar) + env(safe-area-inset-bottom,0px))}
@@ -35,8 +44,12 @@ header.top{position:sticky;top:0;z-index:5;background:var(--nav);color:var(--nav
 .brand h1{font-size:20px}
 .who{display:flex;align-items:center;gap:8px;min-width:0}
 .who .name{font-size:13px;color:rgba(255,255,255,.75);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw}
+.themeform{display:contents}
+.iconbtn{display:flex;padding:8px;background:none;border:0;color:var(--nav-ink)}
+.iconbtn .sun,[data-theme="dark"] .iconbtn .moon{display:none}
+[data-theme="dark"] .iconbtn .sun{display:block}
 .bell{position:relative;display:flex;padding:8px;color:var(--nav-ink)}
-.dot{position:absolute;top:2px;right:0;min-width:17px;height:17px;border-radius:9px;background:#e8a33d;color:#1f2a37;color:var(--accent-ink);font:600 11px/17px var(--f-body);text-align:center;padding:0 4px}
+.dot{position:absolute;top:2px;right:0;min-width:17px;height:17px;border-radius:9px;background:#e8a33d;color:#1f2a37;font:600 11px/17px var(--f-body);text-align:center;padding:0 4px}
 
 /* tab bar: bottom on phones, under the header on wider screens */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -99,7 +112,7 @@ header.top{position:sticky;top:0;z-index:5;background:var(--nav);color:var(--nav
 .btn{display:inline-flex;align-items:center;min-height:36px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:0 16px;font-weight:600;font-size:14px;color:inherit;text-decoration:none}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.secondary{border-color:var(--accent);color:var(--accent);background:var(--surface)}
-.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .linkish{background:none;border:0;color:var(--accent);font-weight:600;padding:0;text-decoration:underline;text-underline-offset:3px}
 .pill{display:inline-flex;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;text-decoration:none}
@@ -163,3 +176,19 @@ details.mailtext summary{cursor:pointer;color:var(--muted);font-size:13px}
 .narrow{max-width:420px;margin-inline:auto}
 .prose{max-width:65ch;margin-top:12px}
 footer.foot{margin-top:28px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
+
+/* day picker: whole weeks, monday–sunday, up to the latest published rooster */
+.daypick{border:0;margin:0;padding:0 14px 12px;display:grid;gap:4px}
+.daypick legend{font-size:12px;font-weight:600;color:var(--ink-2);padding:0 0 6px}
+.dow,.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.dow span{text-align:center;font-size:11px;font-weight:600;color:var(--muted)}
+.week label{cursor:pointer}
+.week input{position:absolute;opacity:0;width:1px;height:1px}
+.week span{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;height:44px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:14px;line-height:1.1}
+.week small{font-size:10px;color:var(--muted)}
+.week i{position:absolute;top:3px;right:4px;font:600 10px var(--f-body);font-style:normal;color:var(--accent)}
+.week .has span{border-color:var(--accent)}
+.week .past span{opacity:.35;cursor:default;background:transparent}
+.week input:checked + span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.week input:checked + span small,.week input:checked + span i{color:var(--accent-ink)}
+.week input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}

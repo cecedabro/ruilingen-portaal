@@ -709,3 +709,55 @@ def test_pending_status_is_visible_to_others(people):
     assert "je bent de eerste" in n.get("/aangeboden").text
     s_client.post(f"/listings/{lid}/react")
     assert "je bent 2e" in s_client.get("/aangeboden").text
+
+
+# ---------------------------------------------------------------- day picker and theme
+
+
+def test_roster_horizon_follows_tuesday_release():
+    from app.services import roster_horizon
+
+    monday, tuesday, sunday = date(2026, 10, 12), date(2026, 10, 13), date(2026, 10, 18)
+    assert roster_horizon(monday, 1) == sunday  # next week's rooster isn't out yet
+    assert roster_horizon(tuesday, 1) == sunday + timedelta(days=7)  # it is now
+    assert roster_horizon(sunday, 1) == sunday + timedelta(days=7)
+
+
+def test_day_choices_are_whole_weeks_from_this_monday():
+    from app.services import day_choices
+
+    tuesday = date(2026, 10, 13)
+    weeks = day_choices(tuesday, [], set(), 1)
+    assert len(weeks) == 2 and all(len(w) == 7 for w in weeks)
+    assert weeks[0][0].day == date(2026, 10, 12) and not weeks[0][0].selectable  # monday, past
+    assert weeks[0][1].selectable and weeks[-1][-1].day == date(2026, 10, 25)
+
+
+def test_filter_on_specific_days(people):
+    _, d = people["daan"]
+    _offer(d, 1, "H", note="one")
+    _offer(d, 2, "H", note="two")
+    _offer(d, 3, "H", note="three")
+    _, s_client = people["sanne"]
+    d1, d3 = (TODAY + timedelta(days=1)).isoformat(), (TODAY + timedelta(days=3)).isoformat()
+    assert _shown(s_client, f"?dag={d1}&dag={d3}") == {"one", "three"}
+    page = s_client.get("/aangeboden").text
+    assert f'value="{d1}"' in page  # offered in the picker
+    assert _shown(s_client, "?dag=not-a-date") == {"one", "two", "three"}
+
+
+def test_posting_time_not_shown_on_board(people):
+    _, d = people["daan"]
+    _offer(d, 2, "H")
+    _, s_client = people["sanne"]
+    assert "vandaag " not in s_client.get("/aangeboden").text
+
+
+def test_theme_switch_without_js(people):
+    _, client = people["sanne"]
+    assert 'data-theme="light"' in client.get("/aangeboden").text
+    r = client.post("/theme", data={"next": "/gezocht"}, follow_redirects=False)
+    assert r.headers["location"] == "/gezocht"
+    assert 'data-theme="dark"' in client.get("/aangeboden").text
+    client.post("/theme", data={"next": "/"})
+    assert 'data-theme="light"' in client.get("/aangeboden").text

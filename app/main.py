@@ -242,6 +242,18 @@ def login_finish(request: Request, token: str, next: str = Form(""), db=Depends(
     return redirect(safe_next(next, "/aangeboden"))
 
 
+@app.post("/theme")
+def toggle_theme(request: Request, next: str = Form("")):
+    """Light/dark switch, remembered per device. app.js does the same instantly without a
+    round-trip; this is the fallback without JavaScript."""
+    theme = "light" if request.cookies.get("theme") == "dark" else "dark"
+    response = redirect(safe_next(next, "/"))
+    response.set_cookie(
+        "theme", theme, max_age=365 * 86400, samesite="lax", secure=settings.secure_cookies
+    )
+    return response
+
+
 @app.post("/logout")
 def logout(request: Request):
     auth.log_out(request)
@@ -258,14 +270,17 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         q.get("dagdeel", ""),
         q.get("zaal", ""),
         q.get("vrij", ""),
-        q.get("periode", ""),
+        q.getlist("dag"),
     )
     everything = services.open_listings(db, kind, today())
     # Who posted first: rank over the whole board, so a filter doesn't change the numbers.
     by_posting = sorted(everything, key=lambda lst: (lst.created_at, lst.id))
     ranks = {lst.id: n for n, lst in enumerate(by_posting, start=1)}
     posted_order = q.get("volgorde") == "geplaatst"
-    items = flt.apply(by_posting if posted_order else everything, today())
+    items = flt.apply(by_posting if posted_order else everything)
+    weeks = services.day_choices(
+        today(), everything, set(flt.dagen), settings.roster_release_weekday
+    )
     halls = sorted({lst.hall for lst in everything if lst.hall}, key=str.lower)
     return render(
         request,
@@ -275,6 +290,7 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         kind=kind,
         items=items,
         ranks=ranks,
+        weeks=weeks,
         posted_order=posted_order,
         total=len(everything),
         flt=flt,

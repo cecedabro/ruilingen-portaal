@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # Shows the login link on screen instead of only mailing it. Local development only.
     dev_mode: bool = False
 
+    # Roosters are published on this weekday (0 = monday, 1 = tuesday) for the week after.
+    # The day filter offers dates up to the end of the latest published rooster.
+    roster_release_weekday: int = 1
+
     # Swaps, listings and notifications older than this (by shift date) are deleted.
     retention_days: int = 42
 

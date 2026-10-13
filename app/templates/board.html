@@ -9,9 +9,22 @@
       <span>Filter{% if flt.active %} <b class="count">{{ items | length }} van {{ total }}</b>{% endif %}</span>
       {% if flt.active %}<a class="linkish" href="{{ path }}">Wis</a>{% endif %}
     </summary>
+    <fieldset class="daypick">
+      <legend>Wanneer {% if flt.dagen %}<span class="meta">{{ flt.dagen | length }} dag{{ 'en' if flt.dagen | length > 1 }}</span>{% endif %}</legend>
+      <div class="dow" aria-hidden="true"><span>ma</span><span>di</span><span>wo</span><span>do</span><span>vr</span><span>za</span><span>zo</span></div>
+      {% for week in weeks %}
+      <div class="week">
+        {% for d in week %}
+        <label class="{{ 'past' if not d.selectable }}{{ ' has' if d.count }}" title="{{ fmt_date_long(d.day) }}{{ ': ' ~ d.count ~ ' dienst' ~ ('en' if d.count != 1) if d.count }}">
+          <input type="checkbox" name="dag" value="{{ d.day.isoformat() }}" {% if d.selected %}checked{% endif %} {% if not d.selectable %}disabled{% endif %}>
+          <span><b>{{ d.day.day }}</b>{% if d.day.day == 1 or loop.first %}<small>{{ fmt_date(d.day).split(" ")[2] }}</small>{% endif %}{% if d.count %}<i>{{ d.count }}</i>{% endif %}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </fieldset>
     <div class="fgrid">
       <label>Soort<select name="soort"><option value="">Alle</option>{% for k in ["H", "G", "C", "P", "R", "I"] %}<option value="{{ k }}" {% if flt.soort == k %}selected{% endif %}>{{ k }} · {{ PARTS[k].split(" ")[0] }}</option>{% endfor %}</select></label>
-      <label>Wanneer<select name="periode"><option value="">Altijd</option><option value="week" {% if flt.periode == "week" %}selected{% endif %}>Deze week</option><option value="volgende" {% if flt.periode == "volgende" %}selected{% endif %}>Volgende week</option></select></label>
       <label>Dagdeel<select name="dagdeel"><option value="">Hele dag</option>{% for p in DAYPARTS %}<option {% if flt.dagdeel == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
       <label>Zaal<select name="zaal"><option value="">Alle</option>{% for h in halls %}<option {% if flt.zaal | lower == h | lower %}selected{% endif %}>{{ h }}</option>{% endfor %}</select></label>
       <label>Volgorde<select name="volgorde"><option value="">Op datum</option><option value="geplaatst" {% if posted_order %}selected{% endif %}>Eerst geplaatst</option></select></label>

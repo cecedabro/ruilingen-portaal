@@ -62,6 +62,7 @@ def render(
     if settings.dev_mode:  # pick up CSS/JS edits without a restart
         ctx["static_v"] = _static_version()
     ctx.update(
+        theme="dark" if request.cookies.get("theme") == "dark" else "light",
         request=request,
         user=user,
         settings=settings,
