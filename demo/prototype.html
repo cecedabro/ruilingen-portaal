@@ -1,0 +1,392 @@
+<title>Dienstenruil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one column "noticeboard" app — sticky header with who-you-are, tabs, then shift cards
+   that read like ticket stubs (code block on the left, details right). */
+:root{
+  --bg:#f3f4f6; --surface:#ffffff; --surface-2:#eceef2; --line:#d9dce3;
+  --ink:#1b2236; --muted:#5d6475; --accent:#7b2d3b; --accent-ink:#ffffff; --brass:#9a7428;
+  --ok:#1f7a4d; --ok-bg:#e3f3ea; --warn:#8a5a00; --warn-bg:#fbf0d9; --bad:#a3352e;
+  --c-h:#c4741c; --c-g:#227c7a; --c-c:#b38b1d; --c-p:#6a4fa3; --c-r:#b4486a; --c-i:#6b7280;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#12151f; --surface:#1b2030; --surface-2:#242a3c; --line:#323a50;
+  --ink:#e8eaf1; --muted:#a3a9ba; --accent:#d4707f; --accent-ink:#1b0f12; --brass:#d2ad5e;
+  --ok:#5fc996; --ok-bg:#183326; --warn:#e3b55a; --warn-bg:#352a13; --bad:#ec8a82;
+  --c-h:#e39a4a; --c-g:#4cb6b3; --c-c:#d9b54a; --c-p:#a68be0; --c-r:#e47c9d; --c-i:#9aa1ad;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#12151f; --surface:#1b2030; --surface-2:#242a3c; --line:#323a50;
+  --ink:#e8eaf1; --muted:#a3a9ba; --accent:#d4707f; --accent-ink:#1b0f12; --brass:#d2ad5e;
+  --ok:#5fc996; --ok-bg:#183326; --warn:#e3b55a; --warn-bg:#352a13; --bad:#ec8a82;
+  --c-h:#e39a4a; --c-g:#4cb6b3; --c-c:#d9b54a; --c-p:#a68be0; --c-r:#e47c9d; --c-i:#9aa1ad;
+  color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body)}
+.wrap{max-width:860px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding-block:12px}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-size:1.45rem;letter-spacing:-.01em}
+.brand .tag{font:600 .7rem/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
+.who{display:flex;align-items:center;gap:8px}
+.who label{font-size:.85rem;color:var(--muted)}
+select,input,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.icon-btn{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;line-height:1}
+.dot{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 .7rem/18px var(--f-body);text-align:center;padding:0 4px}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;font-weight:600;color:var(--muted);white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs .n{font:600 .75rem var(--f-mono);background:var(--surface-2);border-radius:999px;padding:1px 7px;margin-left:6px}
+
+.demo-note{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-top:16px;padding:10px 14px;border:1px dashed var(--line);border-radius:var(--r);font-size:.9rem;color:var(--muted)}
+.linkish{background:none;border:0;color:var(--accent);font-weight:600;padding:0;text-decoration:underline;text-underline-offset:3px}
+
+/* filters */
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-block:18px 10px}
+.filters .lbl{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.chipbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:.9rem}
+.chipbtn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.intro{color:var(--muted);margin:6px 0 0;max-width:65ch}
+
+/* cards */
+.list{display:grid;gap:12px}
+.card{display:grid;grid-template-columns:auto 1fr;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.stub{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 12px;min-width:92px;background:var(--surface-2);border-right:2px dashed var(--line)}
+.rank{font:700 .72rem var(--f-mono);color:var(--muted);letter-spacing:.06em}
+.body{padding:14px 16px;min-width:0;display:grid;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+.when{font-family:var(--f-display);font-size:1.15rem;font-weight:700}
+.time{font:500 .95rem var(--f-mono)}
+.meta{font-size:.88rem;color:var(--muted)}
+.note{margin:0;font-size:.95rem}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 14px;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 10px;font-size:.8rem;font-weight:600}
+.pill.wait{background:var(--warn-bg);color:var(--warn)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.off{background:var(--surface-2);color:var(--muted)}
+.empty{padding:28px 18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+
+/* shift code */
+.code{display:inline-flex;border-radius:6px;overflow:hidden;font:700 1.05rem/1 var(--f-mono)}
+.code span{padding:6px 7px;color:#fff}
+.code.sm{font-size:.8rem}.code.sm span{padding:3px 5px}
+.k-H{background:var(--c-h)}.k-G{background:var(--c-g)}.k-C{background:var(--c-c)}.k-P{background:var(--c-p)}.k-R{background:var(--c-r)}.k-I{background:var(--c-i)}
+:root[data-theme="dark"] .code span{color:#14161d}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .code span{color:#14161d} }
+.codeexpl{font-size:.82rem;color:var(--muted)}
+
+/* reactions */
+.reactions{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
+.reactions h4{margin:0;font:600 .78rem var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.react{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--surface-2)}
+.react .who-n{font-weight:600}
+.react .actions{margin-left:auto}
+
+/* deal + mail */
+.deal{border:1px solid var(--ok);border-radius:var(--r);padding:14px 16px;display:grid;gap:10px;background:var(--surface)}
+.checks{display:grid;gap:4px;font-size:.92rem}
+.checks div::before{content:"✓ ";color:var(--ok);font-weight:700}
+.mail{background:var(--surface-2);border-radius:8px;padding:12px;font:500 .82rem/1.55 var(--f-mono);white-space:pre-wrap;overflow-x:auto;margin:0}
+.mailhead{font-size:.88rem;display:grid;gap:2px}
+.mailhead b{display:inline-block;min-width:56px;color:var(--muted);font-weight:600}
+
+/* form */
+.form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:14px;margin-top:18px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:.85rem;font-weight:600}
+.field small{color:var(--muted)}
+.typepick{display:flex;flex-wrap:wrap;gap:6px}
+.typepick button{border:2px solid transparent;background:none;border-radius:8px;padding:2px}
+.typepick button[aria-pressed="true"]{border-color:var(--ink)}
+
+/* legend + panel */
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px;margin-top:22px;font-size:.9rem}
+.legend div{display:flex;gap:8px;align-items:center}
+.panel{position:fixed;inset:0;background:rgba(10,12,20,.45);z-index:20;display:flex;justify-content:flex-end}
+.panel .sheet{width:min(420px,100%);height:100%;background:var(--bg);padding:18px 16px;overflow-y:auto;display:grid;align-content:start;gap:10px;padding-top:calc(18px + env(safe-area-inset-top,0px))}
+.notif{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:.93rem}
+.notif.unread{border-left:4px solid var(--accent)}
+.notif .meta{display:block;margin-top:2px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion: no-preference){ .card,.deal{animation:in .25s ease-out} @keyframes in{from{transform:translateY(4px);opacity:.6}to{transform:none;opacity:1}} }
+@media (max-width:480px){ .stub{min-width:74px;padding:12px 8px} .body{padding:12px} }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <div class="brand"><h1>Dienstenruil</h1><span class="tag">demo</span></div>
+      <div class="who">
+        <label for="me">Ik ben</label>
+        <select id="me"></select>
+        <button class="icon-btn" id="bell" aria-label="Meldingen">🔔<span class="dot" id="bellDot" hidden>0</span></button>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Onderdelen">
+      <button role="tab" data-tab="aanbod" aria-selected="true">Aangeboden<span class="n" id="nA">0</span></button>
+      <button role="tab" data-tab="gezocht" aria-selected="false">Gezocht<span class="n" id="nG">0</span></button>
+      <button role="tab" data-tab="mijn" aria-selected="false">Mijn ruilen<span class="n" id="nM">0</span></button>
+      <button role="tab" data-tab="plaats" aria-selected="false">+ Plaatsen</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+<div id="panel" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+var KEY="dienstenruil-demo-v1";
+var TYPES=["H","HG","GH","G","CGH","CHG","CH","R","PH","PHG","PGH","I"];
+var PART={H:"Horeca (bar)",G:"Garderobe",C:"Champagnebar",P:"Programma's verkopen",R:"Receptie",I:"Inwerkdienst"};
+var PEOPLE=[
+ {id:"u1",name:"Sanne de Vries"},{id:"u2",name:"Daan Bakker"},{id:"u3",name:"Lotte Visser"},{id:"u4",name:"Milan Jansen"},
+ {id:"u5",name:"Fleur Mulder"},{id:"u6",name:"Thijs de Boer"},{id:"u7",name:"Noor Smit"},{id:"u8",name:"Bram Meijer"}];
+PEOPLE.forEach(function(p){p.email=p.name.toLowerCase().replace(/ de /g,".de.").replace(/ /g,".")+"@voorbeeld.nl"});
+var PLANNING_DEFAULT="planning@concertzaal.example";
+
+/* ---------- state ---------- */
+function uid(){return Math.random().toString(36).slice(2,9)}
+function isoDay(offset){var d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10)}
+function ago(mins){return Date.now()-mins*60000}
+function seed(){
+  var L=[
+   {kind:"aanbod",userId:"u2",day:3,start:"18:00",end:"23:30",type:"HG",note:"Verjaardag van mijn moeder.",posted:ago(60*26)},
+   {kind:"aanbod",userId:"u5",day:5,start:"19:00",end:"23:00",type:"G",note:"",posted:ago(60*20)},
+   {kind:"aanbod",userId:"u3",day:5,start:"17:30",end:"23:45",type:"CGH",note:"Lange dienst, zaterdagconcert.",posted:ago(60*8)},
+   {kind:"aanbod",userId:"u6",day:9,start:"11:30",end:"15:00",type:"R",note:"Receptie bij een matinee. Nette kleding.",posted:ago(95)},
+   {kind:"aanbod",userId:"u8",day:12,start:"19:15",end:"22:45",type:"PH",note:"",posted:ago(40)},
+   {kind:"gezocht",userId:"u7",day:4,start:"",end:"",types:["H","G","HG","GH"],note:"Zoek een avonddienst, maakt niet uit welke.",posted:ago(60*30)},
+   {kind:"gezocht",userId:"u4",day:6,start:"",end:"",types:["CH","CGH","CHG"],note:"Graag champagne erbij.",posted:ago(60*5)},
+   {kind:"gezocht",userId:"u1",day:10,start:"",end:"",types:["R","PH","PHG","PGH"],note:"",posted:ago(30)}
+  ].map(function(x){return {id:uid(),kind:x.kind,userId:x.userId,date:isoDay(x.day),start:x.start,end:x.end,type:x.type||"",types:x.types||[],note:x.note,postedAt:x.posted,status:"open"}});
+  var R=[
+   {listingId:L[0].id,fromUserId:"u7",createdAt:ago(60*25),status:"wacht",offer:null},
+   {listingId:L[0].id,fromUserId:"u1",createdAt:ago(60*3),status:"wacht",offer:null},
+   {listingId:L[2].id,fromUserId:"u4",createdAt:ago(60*7),status:"wacht",offer:null},
+   {listingId:L[5].id,fromUserId:"u5",createdAt:ago(60*19),status:"wacht",offer:{start:"19:00",end:"23:00",type:"G"}}
+  ].map(function(x){x.id=uid();return x});
+  return {me:"u2",tab:"aanbod",filter:"",planning:PLANNING_DEFAULT,listings:L,requests:R,notifs:[
+    {id:uid(),userId:"u2",text:"Noor Smit wil je HG-dienst overnemen.",at:ago(60*25),read:false},
+    {id:uid(),userId:"u2",text:"Sanne de Vries wil je HG-dienst overnemen.",at:ago(60*3),read:false},
+    {id:uid(),userId:"u7",text:"Fleur Mulder biedt je een G-dienst aan.",at:ago(60*19),read:false}]};
+}
+var S;
+try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
+if(!S||!S.listings)S=seed();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ---------- helpers ---------- */
+function $(s,r){return (r||document).querySelector(s)}
+function esc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function person(id){return PEOPLE.find(function(p){return p.id===id})||{name:"?",email:""}}
+function first(id){return person(id).name.split(" ")[0]}
+var DAYS=["zo","ma","di","wo","do","vr","za"],MON=["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+function fmtDate(iso){var d=new Date(iso+"T12:00:00");return DAYS[d.getDay()]+" "+d.getDate()+" "+MON[d.getMonth()]}
+function fmtStamp(ms){var d=new Date(ms),n=new Date(),hm=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  var y=new Date();y.setDate(n.getDate()-1);
+  if(d.toDateString()===n.toDateString())return "vandaag "+hm;
+  if(d.toDateString()===y.toDateString())return "gisteren "+hm;
+  return DAYS[d.getDay()]+" "+d.getDate()+" "+MON[d.getMonth()]+" "+hm}
+function codeHTML(t,sm){return '<span class="code'+(sm?" sm":"")+'" title="'+esc(expl(t))+'">'+t.split("").map(function(c){return '<span class="k-'+c+'">'+c+'</span>'}).join("")+'</span>'}
+function expl(t){return t.split("").map(function(c){return PART[c]}).join(" → ")}
+function timeStr(l){return l.start?l.start+"–"+l.end:""}
+function notify(userId,text){S.notifs.unshift({id:uid(),userId:userId,text:text,at:Date.now(),read:false})}
+function toast(t){var el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true},2600)}
+function past(l){return l.date<isoDay(0)}
+function reqsFor(l){return S.requests.filter(function(r){return r.listingId===l.id}).sort(function(a,b){return a.createdAt-b.createdAt})}
+
+/* ---------- views ---------- */
+function render(){
+  var me=S.me, open=S.listings.filter(function(l){return l.status==="open"&&!past(l)});
+  $("#nA").textContent=open.filter(function(l){return l.kind==="aanbod"}).length;
+  $("#nG").textContent=open.filter(function(l){return l.kind==="gezocht"}).length;
+  $("#nM").textContent=myItems().length;
+  document.querySelectorAll("nav.tabs button").forEach(function(b){b.setAttribute("aria-selected",String(b.dataset.tab===S.tab))});
+  var unread=S.notifs.filter(function(n){return n.userId===me&&!n.read}).length;
+  var dot=$("#bellDot");dot.hidden=!unread;dot.textContent=unread;
+  var m=$("#main");
+  var note='<div class="demo-note"><span>Demo met verzonnen collega\'s. Wissel bovenaan van persoon om beide kanten van een ruil te zien. Er worden geen mails verstuurd.</span><button class="linkish" data-act="reset">Demo opnieuw beginnen</button></div>';
+  if(S.tab==="aanbod"||S.tab==="gezocht")m.innerHTML=note+boardView(S.tab,open);
+  else if(S.tab==="mijn")m.innerHTML=note+mineView();
+  else m.innerHTML=note+formView();
+  save();
+}
+function filters(){
+  var f=S.filter;return '<div class="filters"><span class="lbl">Soort</span>'+
+   ['','H','G','C','P','R','I'].map(function(k){return '<button class="chipbtn" data-act="filter" data-k="'+k+'" aria-pressed="'+(f===k)+'">'+(k?k+" · "+PART[k].split(" ")[0]:"Alles")+'</button>'}).join("")+'</div>';
+}
+function boardView(kind,open){
+  var items=open.filter(function(l){return l.kind===kind}).sort(function(a,b){return a.postedAt-b.postedAt});
+  if(S.filter)items=items.filter(function(l){return (l.type+l.types.join("")).indexOf(S.filter)>=0});
+  var intro=kind==="aanbod"?"Diensten die collega's willen weggeven, oudste eerst. Je mag elke dienst kiezen, niet alleen de bovenste.":"Collega's die een dienst zoeken, oudste eerst. Heb je er een die past? Bied hem aan.";
+  var html='<p class="intro">'+intro+'</p>'+filters();
+  if(!items.length)return html+'<div class="empty">Niets gevonden'+(S.filter?" voor dit soort dienst":"")+'. Plaats er zelf een via <b>+ Plaatsen</b>.</div>'+legend();
+  return html+'<div class="list">'+items.map(function(l,i){return cardHTML(l,i+1)}).join("")+'</div>'+legend();
+}
+function cardHTML(l,rank){
+  var me=S.me,mine=l.userId===me,rs=reqsFor(l),myReq=rs.find(function(r){return r.fromUserId===me&&r.status==="wacht"});
+  var stub=l.kind==="aanbod"?codeHTML(l.type):'<div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center">'+l.types.map(function(t){return codeHTML(t,true)}).join("")+'</div>';
+  var title=l.kind==="aanbod"?(mine?"Jouw dienst":esc(person(l.userId).name)+" geeft weg"):(mine?"Jij zoekt een dienst":esc(person(l.userId).name)+" zoekt");
+  var act="";
+  if(mine){act='<span class="pill '+(rs.some(function(r){return r.status==="wacht"})?"wait":"off")+'">'+rs.filter(function(r){return r.status==="wacht"}).length+' reactie(s)</span><button class="btn" data-act="tab" data-tab="mijn">Bekijk in Mijn ruilen</button>';}
+  else if(myReq){act='<span class="pill wait">Je hebt gereageerd · wacht op '+esc(first(l.userId))+'</span><button class="linkish" data-act="withdraw" data-id="'+myReq.id+'">Intrekken</button>';}
+  else if(l.kind==="aanbod"){act='<button class="btn primary" data-act="claim" data-id="'+l.id+'">Ik neem deze dienst</button><span class="meta">'+rs.filter(function(r){return r.status==="wacht"}).length+' andere reactie(s)</span>';}
+  else{act='<button class="btn primary" data-act="offerForm" data-id="'+l.id+'">Ik heb een dienst voor je</button>';}
+  return '<article class="card"><div class="stub">'+(rank?'<span class="rank">#'+rank+'</span>':'')+''+stub+'</div><div class="body">'+
+   '<div class="row"><span class="when">'+fmtDate(l.date)+'</span>'+(l.start?'<span class="time">'+timeStr(l)+'</span>':'<span class="meta">hele dag mogelijk</span>')+'</div>'+
+   '<div class="row"><span>'+title+'</span><span class="meta">geplaatst <span class="mono">'+fmtStamp(l.postedAt)+'</span></span></div>'+
+   (l.kind==="aanbod"?'<div class="codeexpl">'+esc(expl(l.type))+'</div>':'<div class="codeexpl">Zoekt: '+l.types.join(", ")+'</div>')+
+   (l.note?'<p class="note">'+esc(l.note)+'</p>':'')+
+   '<div class="actions" id="act-'+l.id+'">'+act+'</div></div></article>';
+}
+function myItems(){
+  var me=S.me;
+  return S.listings.filter(function(l){return l.userId===me||S.requests.some(function(r){return r.listingId===l.id&&r.fromUserId===me})})
+   .filter(function(l){return !past(l)||l.status==="vergeven"});
+}
+function mineView(){
+  var me=S.me,items=myItems().sort(function(a,b){return (a.status==="vergeven")-(b.status==="vergeven")||a.date.localeCompare(b.date)});
+  if(!items.length)return '<p class="intro">Hier zie je jouw geplaatste diensten, de reacties erop, en je eigen reacties.</p><div class="empty">Nog niets. Kijk bij <b>Aangeboden</b> of <b>Gezocht</b>, of plaats zelf iets.</div>';
+  return '<p class="intro">Jouw geplaatste diensten en reacties. Kies zelf welke reactie je accepteert; de volgorde laat zien wie er het eerst was.</p><div class="list">'+items.map(function(l){
+    if(l.status==="vergeven")return dealHTML(l);
+    var rs=reqsFor(l),mine=l.userId===me,head=cardHTML(l,"");
+    if(!mine)return head;
+    var wait=rs.filter(function(r){return r.status==="wacht"});
+    var react='<div class="reactions"><h4>Reacties ('+wait.length+')</h4>'+(wait.length?wait.map(function(r,i){
+      var off=r.offer?'<span>biedt '+codeHTML(r.offer.type,true)+' <span class="time">'+r.offer.start+"–"+r.offer.end+'</span></span>':'';
+      return '<div class="react"><span class="rank">#'+(i+1)+'</span><span class="who-n">'+esc(person(r.fromUserId).name)+'</span>'+off+'<span class="meta mono">'+fmtStamp(r.createdAt)+'</span><div class="actions"><button class="btn ok" data-act="accept" data-id="'+r.id+'">Bevestigen</button><button class="btn" data-act="decline" data-id="'+r.id+'">Nee</button></div></div>'}).join(""):'<div class="meta">Nog geen reacties.</div>')+
+      '<div class="actions"><button class="linkish" data-act="remove" data-id="'+l.id+'">Dienst weghalen</button></div></div>';
+    return head.replace('</div></article>',react+'</div></article>');
+  }).join("")+'</div>';
+}
+function dealParties(l){
+  var r=S.requests.find(function(x){return x.listingId===l.id&&x.status==="geaccepteerd"});
+  if(l.kind==="aanbod")return {giver:l.userId,taker:r.fromUserId,shift:{date:l.date,start:l.start,end:l.end,type:l.type},req:r,confirmedAt:r.decidedAt};
+  return {giver:r.fromUserId,taker:l.userId,shift:{date:l.date,start:r.offer.start,end:r.offer.end,type:r.offer.type},req:r,confirmedAt:r.decidedAt};
+}
+function mailText(d){
+  var g=person(d.giver),t=person(d.taker),s=d.shift;
+  return {to:S.planning,cc:g.email+", "+t.email,subject:"Dienstruil "+fmtDate(s.date)+" · "+s.type+" "+s.start+"–"+s.end,
+   body:"Beste planning,\n\n"+t.name+" neemt de volgende dienst over van "+g.name+":\n\n  Datum:  "+fmtDate(s.date)+" ("+s.date+")\n  Tijd:   "+s.start+"–"+s.end+"\n  Soort:  "+s.type+" ("+expl(s.type)+")\n\nWij hebben dit allebei bevestigd.\n\nMet vriendelijke groet,\n"+g.name+" en "+t.name};
+}
+function dealHTML(l){
+  var d=dealParties(l),m=mailText(d),g=person(d.giver),t=person(d.taker);
+  return '<article class="deal"><div class="row"><span class="pill ok">Rond</span><span class="when">'+fmtDate(d.shift.date)+'</span><span class="time">'+d.shift.start+"–"+d.shift.end+'</span>'+codeHTML(d.shift.type,true)+'</div>'+
+   '<div>'+esc(t.name)+' neemt deze dienst over van '+esc(g.name)+'.</div>'+
+   '<div class="checks"><div>'+esc(person(d.req.fromUserId).name)+' heeft gereageerd op <span class="mono">'+fmtStamp(d.req.createdAt)+'</span></div><div>'+esc(person(l.userId).name)+' heeft bevestigd op <span class="mono">'+fmtStamp(d.confirmedAt)+'</span></div></div>'+
+   '<div class="mailhead"><div><b>Aan</b> '+esc(m.to)+'</div><div><b>Cc</b> '+esc(m.cc)+'</div><div><b>Onderwerp</b> '+esc(m.subject)+'</div></div>'+
+   '<pre class="mail">'+esc(m.body)+'</pre>'+
+   '<div class="actions"><button class="btn primary" data-act="copy" data-id="'+l.id+'">Kopieer mail</button><a class="btn" href="mailto:'+encodeURIComponent(m.to)+'?cc='+encodeURIComponent(m.cc)+'&subject='+encodeURIComponent(m.subject)+'&body='+encodeURIComponent(m.body)+'">Open in mailapp</a><span class="meta">Je verstuurt de mail zelf, zodat planning hem van jullie krijgt, net als nu.</span></div></article>';
+}
+var draft={kind:"aanbod",type:"H",types:["H"]};
+function formView(){
+  var k=draft.kind;
+  return '<form class="form" id="f"><h2 style="font-size:1.2rem">Iets plaatsen</h2>'+
+   '<div class="seg" role="group" aria-label="Wat wil je?"><button type="button" data-act="kind" data-k="aanbod" aria-pressed="'+(k==="aanbod")+'">Ik geef een dienst weg</button><button type="button" data-act="kind" data-k="gezocht" aria-pressed="'+(k==="gezocht")+'">Ik zoek een dienst</button></div>'+
+   '<div class="grid2"><div class="field"><label for="fd">Datum</label><input type="date" id="fd" required min="'+isoDay(0)+'" value="'+isoDay(7)+'"></div>'+
+   (k==="aanbod"?'<div class="field"><label for="fs">Begin</label><input type="time" id="fs" required value="18:00"></div><div class="field"><label for="fe">Eind</label><input type="time" id="fe" required value="23:30"></div>':'')+'</div>'+
+   '<div class="field"><label>'+(k==="aanbod"?"Soort dienst":"Welke soorten zou je willen? (meerdere mag)")+'</label><div class="typepick">'+TYPES.map(function(t){
+      var on=k==="aanbod"?draft.type===t:draft.types.indexOf(t)>=0;
+      return '<button type="button" data-act="ptype" data-t="'+t+'" aria-pressed="'+on+'" title="'+esc(expl(t))+'">'+codeHTML(t,true)+'</button>'}).join("")+'</div><small id="typeExpl">'+esc(k==="aanbod"?expl(draft.type):draft.types.map(expl).join(" · "))+'</small></div>'+
+   '<div class="field"><label for="fn">Toelichting <span class="meta">(optioneel)</span></label><textarea id="fn" rows="2" maxlength="200" placeholder="Bijvoorbeeld: alleen vóór 22:00, of: graag bar"></textarea></div>'+
+   '<div class="actions"><button class="btn primary" type="submit">Plaatsen</button><span class="meta">Komt onderaan de lijst, met het tijdstip van nu.</span></div></form>'+
+   '<div class="form"><h2 style="font-size:1.05rem">Instellingen demo</h2><div class="field"><label for="pl">Mailadres planning</label><input id="pl" type="email" value="'+esc(S.planning)+'"><small>Alleen gebruikt in de mailtekst. Er wordt niets verstuurd.</small></div></div>'+legend();
+}
+function legend(){return '<div class="legend">'+Object.keys(PART).map(function(k){return '<div>'+codeHTML(k,true)+'<span>'+PART[k]+(k==="I"?" (indeling volgt)":"")+'</span></div>'}).join("")+'<div><span class="meta">Volgorde = volgorde in de dienst, bv. HG is eerst bar, na de pauze garderobe.</span></div></div>'}
+
+/* offer form for "gezocht" */
+function offerForm(id){
+  var l=S.listings.find(function(x){return x.id===id});
+  var el=$("#act-"+id);
+  el.innerHTML='<form class="grid2" style="width:100%" data-offer="'+id+'"><div class="field"><label for="os">Begin</label><input type="time" id="os" required value="18:00"></div><div class="field"><label for="oe">Eind</label><input type="time" id="oe" required value="23:00"></div><div class="field"><label for="ot">Soort</label><select id="ot">'+l.types.map(function(t){return '<option>'+t+'</option>'}).join("")+TYPES.filter(function(t){return l.types.indexOf(t)<0}).map(function(t){return '<option>'+t+'</option>'}).join("")+'</select></div><div class="actions" style="align-self:end"><button class="btn primary" type="submit">Aanbieden aan '+esc(first(l.userId))+'</button></div></form>';
+}
+
+/* ---------- actions ---------- */
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-act]");if(!b)return;
+  var a=b.dataset.act,id=b.dataset.id,me=S.me;
+  if(a==="tab"){S.tab=b.dataset.tab;render();window.scrollTo(0,0);return}
+  if(a==="filter"){S.filter=b.dataset.k;render();return}
+  if(a==="reset"){S=seed();save();render();toast("Demo staat weer op beginstand");return}
+  if(a==="kind"){draft.kind=b.dataset.k;render();return}
+  if(a==="ptype"){var t=b.dataset.t;if(draft.kind==="aanbod")draft.type=t;else{var i=draft.types.indexOf(t);if(i>=0){if(draft.types.length>1)draft.types.splice(i,1)}else draft.types.push(t)}render();return}
+  if(a==="claim"){var l=S.listings.find(function(x){return x.id===id});
+    if(l.status!=="open"){toast("Deze dienst is net vergeven");render();return}
+    S.requests.push({id:uid(),listingId:id,fromUserId:me,createdAt:Date.now(),status:"wacht",offer:null});
+    notify(l.userId,person(me).name+" wil je "+l.type+"-dienst van "+fmtDate(l.date)+" overnemen.");
+    render();toast("Gereageerd. "+first(l.userId)+" krijgt een melding.");return}
+  if(a==="offerForm"){offerForm(id);return}
+  if(a==="withdraw"){var r=S.requests.find(function(x){return x.id===id});r.status="ingetrokken";render();toast("Reactie ingetrokken");return}
+  if(a==="decline"){var r2=S.requests.find(function(x){return x.id===id});r2.status="afgewezen";var l2=S.listings.find(function(x){return x.id===r2.listingId});
+    notify(r2.fromUserId,person(me).name+" heeft je reactie op "+fmtDate(l2.date)+" afgewezen.");render();return}
+  if(a==="accept"){var r3=S.requests.find(function(x){return x.id===id}),l3=S.listings.find(function(x){return x.id===r3.listingId});
+    if(l3.status!=="open"){toast("Al vergeven");render();return}
+    r3.status="geaccepteerd";r3.decidedAt=Date.now();l3.status="vergeven";
+    S.requests.forEach(function(x){if(x.listingId===l3.id&&x.id!==r3.id&&x.status==="wacht"){x.status="vervallen";notify(x.fromUserId,"De dienst van "+fmtDate(l3.date)+" is aan iemand anders gegeven.")}});
+    notify(r3.fromUserId,person(me).name+" heeft bevestigd: de ruil van "+fmtDate(l3.date)+" is rond. Mail planning vanuit Mijn ruilen.");
+    render();toast("Rond! Stuur nu de mail naar planning.");return}
+  if(a==="remove"){var l4=S.listings.find(function(x){return x.id===id});l4.status="weg";
+    S.requests.forEach(function(x){if(x.listingId===id&&x.status==="wacht"){x.status="vervallen";notify(x.fromUserId,person(me).name+" heeft de dienst van "+fmtDate(l4.date)+" weggehaald.")}});render();return}
+  if(a==="copy"){var l5=S.listings.find(function(x){return x.id===id}),m=mailText(dealParties(l5)),txt="Aan: "+m.to+"\nCc: "+m.cc+"\nOnderwerp: "+m.subject+"\n\n"+m.body;
+    var pre=b.closest(".deal").querySelector(".mail");
+    function sel(){var rg=document.createRange();rg.selectNodeContents(pre);var s=window.getSelection();s.removeAllRanges();s.addRange(rg);toast("Tekst geselecteerd, kopieer met Cmd/Ctrl+C")}
+    try{navigator.clipboard.writeText(txt).then(function(){toast("Mail gekopieerd")},sel)}catch(err){sel()}return}
+});
+document.addEventListener("submit",function(e){
+  e.preventDefault();var f=e.target;
+  if(f.id==="f"){
+    var l={id:uid(),kind:draft.kind,userId:S.me,date:$("#fd").value,start:draft.kind==="aanbod"?$("#fs").value:"",end:draft.kind==="aanbod"?$("#fe").value:"",type:draft.kind==="aanbod"?draft.type:"",types:draft.kind==="gezocht"?draft.types.slice():[],note:$("#fn").value.trim(),postedAt:Date.now(),status:"open"};
+    if(!l.date){toast("Kies een datum");return}
+    S.listings.push(l);S.tab=draft.kind;render();toast("Geplaatst om "+fmtStamp(l.postedAt).replace("vandaag ",""));return}
+  if(f.dataset.offer){var lid=f.dataset.offer,l2=S.listings.find(function(x){return x.id===lid});
+    S.requests.push({id:uid(),listingId:lid,fromUserId:S.me,createdAt:Date.now(),status:"wacht",offer:{start:$("#os").value,end:$("#oe").value,type:$("#ot").value}});
+    notify(l2.userId,person(S.me).name+" biedt je een "+$("#ot").value+"-dienst aan op "+fmtDate(l2.date)+".");render();toast("Aangeboden. "+first(l2.userId)+" krijgt een melding.")}
+});
+document.addEventListener("change",function(e){
+  if(e.target.id==="me"){S.me=e.target.value;render();toast("Je bent nu "+person(S.me).name)}
+  if(e.target.id==="pl"){S.planning=e.target.value.trim()||PLANNING_DEFAULT;save();toast("Opgeslagen")}
+});
+document.querySelectorAll("nav.tabs button").forEach(function(b){b.addEventListener("click",function(){S.tab=b.dataset.tab;render()})});
+
+/* notifications panel */
+$("#bell").addEventListener("click",function(){
+  var mine=S.notifs.filter(function(n){return n.userId===S.me});
+  var p=$("#panel");p.className="panel";p.hidden=false;
+  p.innerHTML='<div class="sheet" role="dialog" aria-label="Meldingen"><div class="row" style="justify-content:space-between"><h2 style="font-size:1.2rem">Meldingen voor '+esc(first(S.me))+'</h2><button class="btn" id="closeP">Sluiten</button></div><p class="meta" style="margin:0">In de echte versie komen deze als e-mail of pushmelding.</p>'+
+   (mine.length?mine.map(function(n){return '<div class="notif'+(n.read?"":" unread")+'">'+esc(n.text)+'<span class="meta mono">'+fmtStamp(n.at)+'</span></div>'}).join(""):'<div class="empty">Geen meldingen.</div>')+'</div>';
+  mine.forEach(function(n){n.read=true});save();
+  function close(){p.hidden=true;render()}
+  $("#closeP").addEventListener("click",close);p.addEventListener("click",function(ev){if(ev.target===p)close()},{once:true});
+});
+
+/* who-am-i select */
+var sel=$("#me");sel.innerHTML=PEOPLE.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>'}).join("");
+sel.value=S.me;
+render();
+})();
+</script>
