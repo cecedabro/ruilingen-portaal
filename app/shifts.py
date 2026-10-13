@@ -95,6 +95,21 @@ class ShiftInfo:
         return self.daypart or ""
 
     @property
+    def part_of_day(self) -> str | None:
+        """The given dagdeel, or the one the start time falls in."""
+        if self.start:
+            hour = int(self.start[:2])
+            return "ochtend" if hour < 12 else "middag" if hour < 17 else "avond"
+        return self.daypart
+
+    @property
+    def sort_key(self) -> str:
+        """Within a day: by start time; a bare dagdeel sorts at its usual start."""
+        return self.start or {"ochtend": "09:00", "middag": "13:00", "avond": "18:00"}.get(
+            self.daypart or "", "99:99"
+        )
+
+    @property
     def where(self) -> str:
         """'Grote Zaal · Foyer 1', one of them, or ''."""
         return " · ".join(p for p in (self.hall, self.workplace) if p)

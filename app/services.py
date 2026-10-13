@@ -391,12 +391,66 @@ def _with_reactions(stmt):
 
 
 def open_listings(db: Session, kind: Kind, today: date) -> list[Listing]:
-    stmt = (
-        select(Listing)
-        .where(Listing.kind == kind, Listing.status == ListingStatus.OPEN, Listing.date >= today)
-        .order_by(Listing.created_at, Listing.id)
+    """Open listings in shift order: by date, then time (or dagdeel), then who posted first."""
+    stmt = select(Listing).where(
+        Listing.kind == kind, Listing.status == ListingStatus.OPEN, Listing.date >= today
     )
-    return list(db.scalars(_with_reactions(stmt)))
+    items = list(db.scalars(_with_reactions(stmt)))
+    items.sort(key=lambda listing: (listing.date, listing.info.sort_key, listing.created_at))
+    return items
+
+
+@dataclass
+class BoardFilter:
+    """Board filters, straight from the query string. Empty = no filter."""
+
+    soort: str = ""  # a letter: "H" matches H, HG, PGH, ...
+    dagdeel: str = ""  # ochtend / middag / avond
+    zaal: str = ""
+    vrij: str = ""  # "vrij" = nobody reacted yet, "bezet" = someone did
+    periode: str = ""  # "week" = this week, "volgende" = next week
+
+    @classmethod
+    def parse(cls, soort="", dagdeel="", zaal="", vrij="", periode="") -> "BoardFilter":
+        return cls(
+            soort=soort if soort in {"H", "G", "C", "P", "R", "I"} else "",
+            dagdeel=dagdeel if dagdeel in DAYPARTS else "",
+            zaal=" ".join(zaal.split())[:60],
+            vrij=vrij if vrij in {"vrij", "bezet"} else "",
+            periode=periode if periode in {"week", "volgende"} else "",
+        )
+
+    @property
+    def active(self) -> bool:
+        return any((self.soort, self.dagdeel, self.zaal, self.vrij, self.periode))
+
+    def apply(self, items: list[Listing], today: date) -> list[Listing]:
+        monday = today - timedelta(days=today.weekday())
+        weeks = {
+            "week": (monday, monday + timedelta(6)),
+            "volgende": (monday + timedelta(7), monday + timedelta(13)),
+        }
+        out = []
+        for listing in items:
+            info = listing.info
+            types = (listing.shift_type or "") + "".join(listing.wanted_type_list)
+            if self.soort and self.soort not in types:
+                continue
+            if self.dagdeel and info.part_of_day != self.dagdeel:
+                continue
+            if self.zaal and (listing.hall or "").lower() != self.zaal.lower():
+                continue
+            if self.vrij == "vrij" and listing.pending_reactions:
+                continue
+            if self.vrij == "bezet" and not listing.pending_reactions:
+                continue
+            if (
+                self.periode
+                and not weeks[self.periode][0] <= listing.date <= weeks[self.periode][1]
+            ):
+                continue
+            out.append(listing)
+        return out
 
 
 def my_listings(db: Session, user: User, today: date) -> list[Listing]:

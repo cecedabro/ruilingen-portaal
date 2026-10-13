@@ -251,38 +251,41 @@ def logout(request: Request):
 # ---------------------------------------------------------------- boards
 
 
-def _board(request: Request, db: Session, user: User, kind: Kind, soort: str):
-    items = services.open_listings(db, kind, today())
-    ranked = list(enumerate(items, start=1))  # rank = order of posting, before filtering
-    if soort in {"H", "G", "C", "P", "R", "I"}:
-        ranked = [
-            (rank, item)
-            for rank, item in ranked
-            if soort in (item.shift_type or "") + "".join(item.wanted_type_list)
-        ]
-    else:
-        soort = ""
+def _board(request: Request, db: Session, user: User, kind: Kind):
+    q = request.query_params
+    flt = services.BoardFilter.parse(
+        q.get("soort", ""),
+        q.get("dagdeel", ""),
+        q.get("zaal", ""),
+        q.get("vrij", ""),
+        q.get("periode", ""),
+    )
+    everything = services.open_listings(db, kind, today())
+    items = flt.apply(everything, today())
+    halls = sorted({lst.hall for lst in everything if lst.hall}, key=str.lower)
     return render(
         request,
         "board.html",
         db=db,
         user=user,
         kind=kind,
-        ranked=ranked,
-        soort=soort,
+        items=items,
+        total=len(everything),
+        flt=flt,
+        halls=halls,
         tab=kind.value,
-        today=today(),
+        here=request.url.path + (f"?{request.url.query}" if request.url.query else ""),
     )
 
 
 @app.get("/aangeboden", response_class=HTMLResponse)
-def offers(request: Request, soort: str = "", user=Depends(require_user), db=Depends(get_db)):
-    return _board(request, db, user, Kind.OFFER, soort)
+def offers(request: Request, user=Depends(require_user), db=Depends(get_db)):
+    return _board(request, db, user, Kind.OFFER)
 
 
 @app.get("/gezocht", response_class=HTMLResponse)
-def wanted(request: Request, soort: str = "", user=Depends(require_user), db=Depends(get_db)):
-    return _board(request, db, user, Kind.WANTED, soort)
+def wanted(request: Request, user=Depends(require_user), db=Depends(get_db)):
+    return _board(request, db, user, Kind.WANTED)
 
 
 @app.get("/mijn", response_class=HTMLResponse)

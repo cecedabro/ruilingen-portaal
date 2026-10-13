@@ -3,17 +3,33 @@
 {% block title %}{{ "Aangeboden" if kind == "offer" else "Gezocht" }} · {{ settings.app_name }}{% endblock %}
 {% block content %}
 {% set path = "/aangeboden" if kind == "offer" else "/gezocht" %}
-<nav class="filters" aria-label="Filter op soort">
-  <a class="chip" href="{{ path }}" {% if not soort %}aria-current="true"{% endif %}>Alles</a>
-  {% for k in ["H", "G", "C", "P", "R", "I"] %}
-  <a class="chip" href="{{ path }}?soort={{ k }}" title="{{ PARTS[k] }}" {% if soort == k %}aria-current="true"{% endif %}>{{ k }}</a>
+<form class="filter" method="get" action="{{ path }}" data-autosubmit>
+  <details {% if flt.active %}open{% endif %}>
+    <summary>
+      <span>Filter{% if flt.active %} <b class="count">{{ items | length }} van {{ total }}</b>{% endif %}</span>
+      {% if flt.active %}<a class="linkish" href="{{ path }}">Wis</a>{% endif %}
+    </summary>
+    <div class="fgrid">
+      <label>Soort<select name="soort"><option value="">Alle</option>{% for k in ["H", "G", "C", "P", "R", "I"] %}<option value="{{ k }}" {% if flt.soort == k %}selected{% endif %}>{{ k }} · {{ PARTS[k].split(" ")[0] }}</option>{% endfor %}</select></label>
+      <label>Wanneer<select name="periode"><option value="">Altijd</option><option value="week" {% if flt.periode == "week" %}selected{% endif %}>Deze week</option><option value="volgende" {% if flt.periode == "volgende" %}selected{% endif %}>Volgende week</option></select></label>
+      <label>Dagdeel<select name="dagdeel"><option value="">Hele dag</option>{% for p in DAYPARTS %}<option {% if flt.dagdeel == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+      <label>Zaal<select name="zaal"><option value="">Alle</option>{% for h in halls %}<option {% if flt.zaal | lower == h | lower %}selected{% endif %}>{{ h }}</option>{% endfor %}</select></label>
+      <label>Beschikbaar<select name="vrij"><option value="">Alles</option><option value="vrij" {% if flt.vrij == "vrij" %}selected{% endif %}>Nog vrij</option><option value="bezet" {% if flt.vrij == "bezet" %}selected{% endif %}>Al gereageerd</option></select></label>
+      <button class="btn secondary noscript-only" type="submit">Toon</button>
+    </div>
+  </details>
+</form>
+{% if items %}
+<div class="days">
+  {% for day, group in items | groupby("date") %}
+  <section class="day">
+    <h2 class="dayhead">{{ fmt_date_long(day) | capitalize }}</h2>
+    {% for l in group %}{{ m.shift(l, user, next=here) }}{% endfor %}
+  </section>
   {% endfor %}
-</nav>
-{% if ranked %}
-<div class="list">
-  {% for rank, l in ranked %}{{ m.card(l, user, rank=rank, next=path ~ ("?soort=" ~ soort if soort else "")) }}{% endfor %}
 </div>
 {% else %}
-<div class="empty">Niks{{ " met " ~ soort if soort }}. <a href="/plaatsen{{ '?soort=gezocht' if kind == 'wanted' }}">Plaats er een</a></div>
+<div class="empty">{% if flt.active %}Niks met deze filters. <a href="{{ path }}">Wis filters</a>{% else %}Niks. <a href="/plaatsen{{ '?soort=gezocht' if kind == 'wanted' }}">Plaats er een</a>{% endif %}</div>
 {% endif %}
+<datalist id="halls">{% for h in halls %}<option value="{{ h }}">{% endfor %}</datalist>
 {% endblock %}

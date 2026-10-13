@@ -284,15 +284,6 @@ def test_past_listings_are_hidden(people, db):
     assert "gisteren-dienst" not in d_client.get("/mijn").text
 
 
-def test_board_filter_keeps_global_rank(people):
-    _, d_client = people["daan"]
-    post_offer(d_client, code="H")
-    post_offer(d_client, code="G")
-    _, s_client = people["sanne"]
-    page = s_client.get("/aangeboden?soort=G").text
-    assert "#2" in page and "#1" not in page
-
-
 # ---------------------------------------------------------------- wanted shifts
 
 
@@ -613,7 +604,7 @@ def test_offer_with_all_details(people):
         assert listing.info.where == "Grote Zaal · Foyer 2"
     _, other = people["sanne"]
     page = other.get("/aangeboden").text
-    assert "Grote Zaal · Foyer 2" in page and "19:10–22:30" in page
+    assert "<dd>Grote Zaal</dd>" in page and "<dd>Foyer 2</dd>" in page and "19:10" in page
     # ...and the zaal is suggested next time
     assert '<option value="Grote Zaal">' in client.get("/plaatsen").text
 
@@ -640,3 +631,65 @@ def test_wanted_reply_with_only_a_type(people):
     )
     r = reactions(listing.id)[0]
     assert (r.offer_type, r.offer_daypart, r.offer_start) == ("HG", "avond", None)
+
+
+# ---------------------------------------------------------------- board filters and status
+
+
+def _offer(client, days, code, **extra):
+    data = {"kind": "offer", "day": (TODAY + timedelta(days=days)).isoformat(), "code": code}
+    data.update(extra)
+    assert client.post("/plaatsen", data=data).status_code == 200
+
+
+def _shown(client, query=""):
+    page = client.get("/aangeboden" + query).text
+    with SessionLocal() as s:
+        return {lst.note for lst in s.scalars(select(Listing)) if f'id="l{lst.id}"' in page}
+
+
+def test_board_filters(people):
+    _, d = people["daan"]
+    _, n = people["noor"]
+    _offer(d, 2, "HG", start="19:00", end="23:00", hall="Grote Zaal", note="a")
+    _offer(d, 2, "G", daypart="ochtend", hall="Kleine Zaal", note="b")
+    _offer(d, 9, "R", note="c")
+    _, s_client = people["sanne"]
+    assert _shown(s_client) == {"a", "b", "c"}
+    assert _shown(s_client, "?soort=G") == {"a", "b"}  # a letter matches HG too
+    assert _shown(s_client, "?dagdeel=avond") == {"a"}  # from the start time
+    assert _shown(s_client, "?dagdeel=ochtend") == {"b"}
+    assert _shown(s_client, "?zaal=grote zaal") == {"a"}
+    # someone reacts to "a": it's no longer "vrij"
+    with SessionLocal() as s:
+        a_id = s.scalars(select(Listing.id).where(Listing.note == "a")).one()
+    n.post(f"/listings/{a_id}/react")
+    assert _shown(s_client, "?vrij=vrij") == {"b", "c"}
+    assert _shown(s_client, "?vrij=bezet") == {"a"}
+    assert _shown(s_client, "?soort=X&dagdeel=nacht") == {"a", "b", "c"}  # junk is ignored
+
+
+def test_board_is_ordered_by_shift_date_and_time(people):
+    _, d = people["daan"]
+    _offer(d, 5, "H", note="later")
+    _offer(d, 2, "H", daypart="avond", note="avond")
+    _offer(d, 2, "H", start="10:00", end="14:00", note="ochtend")
+    _, s_client = people["sanne"]
+    page = s_client.get("/aangeboden").text
+    assert page.index("ochtend</dd>") < page.index("avond</dd>") < page.index("later</dd>")
+
+
+def test_pending_status_is_visible_to_others(people):
+    _, d = people["daan"]
+    _, n = people["noor"]
+    _, s_client = people["sanne"]
+    _offer(d, 3, "H")
+    with SessionLocal() as s:
+        lid = s.scalars(select(Listing.id)).one()
+    assert "Overnemen" in s_client.get("/aangeboden").text
+    n.post(f"/listings/{lid}/react")
+    page = s_client.get("/aangeboden").text
+    assert "1 reactie · wacht op Daan" in page and "Reageer als 2e" in page
+    assert "je bent de eerste" in n.get("/aangeboden").text
+    s_client.post(f"/listings/{lid}/react")
+    assert "je bent 2e" in s_client.get("/aangeboden").text
