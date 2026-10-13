@@ -10,7 +10,12 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - **Manifest changes**: must be made in the homelab repo (`apps/ruilingen/`) as well.
 
 ## Unreleased
-- Schema change: none
+- Shifts: only date + type required; optional time or dagdeel, zaal, werkplek, opmerking.
+- Shift type shown as a single label; bottom tab bar on phones; light theme only for now.
+
+- **Schema change: yes** (`73538935c3ff`: adds `listings.daypart/hall/workplace`,
+  `reactions.offer_daypart/offer_hall/offer_workplace`; add-column only). Rolling back to 0.2.0
+  needs a database restore.
 - New secret keys: none
 - Manifest changes: none
 
