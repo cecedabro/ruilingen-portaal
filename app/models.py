@@ -16,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.shifts import ShiftInfo
 
 
 def utcnow() -> datetime:
@@ -102,12 +103,16 @@ class Listing(Base):
     kind: Mapped[Kind] = mapped_column(String(10))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
-    # Offers have a time and one shift type; wanted requests have neither, only acceptable types.
+    # Offers have one shift type; wanted requests a list of acceptable types. Everything about
+    # *when/where* beyond the date is optional: "HG, thursday evening" is a complete listing.
     start: Mapped[str | None] = mapped_column(String(5))
     end: Mapped[str | None] = mapped_column(String(5))
+    daypart: Mapped[str | None] = mapped_column(String(10))  # only used when there's no time
+    hall: Mapped[str | None] = mapped_column(String(60))  # zaal
+    workplace: Mapped[str | None] = mapped_column(String(60))  # werkplek / bar
     shift_type: Mapped[str | None] = mapped_column(String(8))
     wanted_types: Mapped[str | None] = mapped_column(String(80))
-    note: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")  # opmerking
     status: Mapped[ListingStatus] = mapped_column(String(10), default=ListingStatus.OPEN)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
@@ -122,6 +127,18 @@ class Listing(Base):
         order_by="(Reaction.created_at, Reaction.id)",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def info(self) -> ShiftInfo:
+        return ShiftInfo(
+            self.shift_type or "",
+            self.date,
+            self.start,
+            self.end,
+            self.daypart,
+            self.hall,
+            self.workplace,
+        )
 
     @property
     def wanted_type_list(self) -> list[str]:
@@ -159,12 +176,28 @@ class Reaction(Base):
     # Only for reactions on a wanted request: the shift being offered.
     offer_start: Mapped[str | None] = mapped_column(String(5))
     offer_end: Mapped[str | None] = mapped_column(String(5))
+    offer_daypart: Mapped[str | None] = mapped_column(String(10))
+    offer_hall: Mapped[str | None] = mapped_column(String(60))
+    offer_workplace: Mapped[str | None] = mapped_column(String(60))
     offer_type: Mapped[str | None] = mapped_column(String(8))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
     listing: Mapped[Listing] = relationship(back_populates="reactions")
     user: Mapped[User] = relationship()
+
+    @property
+    def offer_info(self) -> ShiftInfo:
+        """The shift offered in reply to a wanted request (on the request's date)."""
+        return ShiftInfo(
+            self.offer_type or "",
+            self.listing.date,
+            self.offer_start,
+            self.offer_end,
+            self.offer_daypart,
+            self.offer_hall,
+            self.offer_workplace,
+        )
 
 
 class Notification(Base):

@@ -10,28 +10,51 @@
   </div>
   <input type="hidden" name="kind" value="{{ kind }}">
   {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
-  <div class="grid2">
-    <div class="field"><label for="fd">Datum</label>
-      <input type="date" id="fd" name="day" required min="{{ today.isoformat() }}" value="{{ form.day or '' }}"></div>
-    {% if offer %}
-    <div class="field"><label for="fs">Begin</label><input type="time" id="fs" name="start" required value="{{ form.start or '' }}"></div>
-    <div class="field"><label for="fe">Eind</label><input type="time" id="fe" name="end" required value="{{ form.end or '' }}"></div>
-    {% endif %}
-  </div>
+
+  <div class="field"><label for="fd">Datum</label>
+    <input type="date" id="fd" name="day" required min="{{ today.isoformat() }}" value="{{ form.day or '' }}"></div>
+
   <fieldset class="field">
-    <legend>{{ "Soort" if offer else "Soorten (meerdere mag)" }}</legend>
+    <legend>{{ "Soort" if offer else "Soort (meerdere mag)" }}</legend>
     <div class="typepick">
       {% for t in SHIFT_TYPES %}
       <label>
         {% if offer %}<input type="radio" name="code" value="{{ t }}" {% if form.code == t %}checked{% endif %} required>
         {% else %}<input type="checkbox" name="codes" value="{{ t }}" {% if t in (form.codes or []) %}checked{% endif %}>{% endif %}
-        {{ m.code(t, true) }}<span class="sr-only">{{ t }}</span>
+        <span>{{ t }}</span>
       </label>
       {% endfor %}
     </div>
   </fieldset>
-  <div class="field"><label for="fn">Notitie <span class="meta">(optioneel)</span></label>
+
+  <fieldset class="field">
+    <legend>Wanneer <span class="opt">optioneel</span></legend>
+    <div class="typepick">
+      {% for p in DAYPARTS %}
+      <label><input type="radio" name="daypart" value="{{ p }}" {% if form.daypart == p %}checked{% endif %}><span>{{ p }}</span></label>
+      {% endfor %}
+    </div>
+    {% if offer %}
+    <div class="grid2">
+      <div class="field"><label for="fs">Begin</label><input type="time" id="fs" name="start" value="{{ form.start or '' }}"></div>
+      <div class="field"><label for="fe">Eind</label><input type="time" id="fe" name="end" value="{{ form.end or '' }}"></div>
+    </div>
+    {% endif %}
+  </fieldset>
+
+  {% if offer %}
+  <div class="grid2">
+    <div class="field"><label for="fh">Zaal <span class="opt">optioneel</span></label>
+      <input id="fh" name="hall" maxlength="60" list="halls" value="{{ form.hall or '' }}"></div>
+    <div class="field"><label for="fw">Werkplek <span class="opt">optioneel</span></label>
+      <input id="fw" name="workplace" maxlength="60" list="workplaces" value="{{ form.workplace or '' }}"></div>
+  </div>
+  {% endif %}
+
+  <div class="field"><label for="fn">Opmerking <span class="opt">optioneel</span></label>
     <textarea id="fn" name="note" rows="2" maxlength="200">{{ form.note or '' }}</textarea></div>
   <div><button class="btn primary" type="submit">Plaatsen</button></div>
 </form>
+<datalist id="halls">{% for h in halls %}<option value="{{ h }}">{% endfor %}</datalist>
+<datalist id="workplaces">{% for w in workplaces %}<option value="{{ w }}">{% endfor %}</datalist>
 {% endblock %}

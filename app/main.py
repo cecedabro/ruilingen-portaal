@@ -298,10 +298,7 @@ def mine(request: Request, user=Depends(require_user), db=Depends(get_db)):
                 giver_email=deal.giver.email,
                 taker_name=deal.taker.name,
                 taker_email=deal.taker.email,
-                day=deal.day,
-                start=deal.start,
-                end=deal.end,
-                code=deal.code,
+                shift=deal.shift,
             )
         items.append((listing, deal, mail))
     return render(request, "mine.html", db=db, user=user, items=items, tab="mijn")
@@ -310,14 +307,41 @@ def mine(request: Request, user=Depends(require_user), db=Depends(get_db)):
 # ---------------------------------------------------------------- posting
 
 
+def _suggestions(db: Session, column) -> list[str]:
+    """Zaal/werkplek values used before, for the form's autocomplete. Most used first."""
+    return list(
+        db.scalars(
+            select(column)
+            .where(column.is_not(None))
+            .group_by(column)
+            .order_by(func.count().desc(), column)
+            .limit(30)
+        )
+    )
+
+
+def _post_page(request: Request, db: Session, user: User, kind: Kind, form: dict, **ctx):
+    return render(
+        request,
+        "post.html",
+        db=db,
+        user=user,
+        kind=kind,
+        tab="plaatsen",
+        today=today(),
+        form=form,
+        halls=_suggestions(db, Listing.hall),
+        workplaces=_suggestions(db, Listing.workplace),
+        **ctx,
+    )
+
+
 @app.get("/plaatsen", response_class=HTMLResponse)
 def post_form(
     request: Request, soort: str = "aanbod", user=Depends(require_user), db=Depends(get_db)
 ):
     kind = Kind.WANTED if soort == "gezocht" else Kind.OFFER
-    return render(
-        request, "post.html", db=db, user=user, kind=kind, tab="plaatsen", today=today(), form={}
-    )
+    return _post_page(request, db, user, kind, {})
 
 
 @app.post("/plaatsen", response_class=HTMLResponse)
@@ -325,32 +349,47 @@ def post_submit(
     request: Request,
     kind: Kind = Form(...),
     day: str = Form(""),
-    start: str = Form(""),
-    end: str = Form(""),
     code: str = Form(""),
     codes: list[str] = Form([]),
+    start: str = Form(""),
+    end: str = Form(""),
+    daypart: str = Form(""),
+    hall: str = Form(""),
+    workplace: str = Form(""),
     note: str = Form(""),
     user=Depends(require_user),
     db=Depends(get_db),
 ):
+    form = dict(
+        day=day,
+        code=code,
+        codes=codes,
+        start=start,
+        end=end,
+        daypart=daypart,
+        hall=hall,
+        workplace=workplace,
+        note=note,
+    )
     try:
-        parsed_day = date.fromisoformat(day)
-    except ValueError:
-        parsed_day = None
-    try:
-        if parsed_day is None:
-            raise SwapError("Kies een datum.")
+        try:
+            parsed_day = date.fromisoformat(day)
+        except ValueError:
+            raise SwapError("Kies een datum.") from None
         if kind == Kind.OFFER:
             listing = services.run_write(
                 db,
                 services.create_offer,
                 user,
                 day=parsed_day,
-                start=start,
-                end=end,
                 code=code,
                 note=note,
                 today=today(),
+                start=start,
+                end=end,
+                daypart=daypart,
+                hall=hall,
+                workplace=workplace,
             )
         else:
             listing = services.run_write(
@@ -361,21 +400,10 @@ def post_submit(
                 codes=codes,
                 note=note,
                 today=today(),
+                daypart=daypart,
             )
     except SwapError as e:
-        form = dict(day=day, start=start, end=end, code=code, codes=codes, note=note)
-        return render(
-            request,
-            "post.html",
-            db=db,
-            user=user,
-            kind=kind,
-            tab="plaatsen",
-            today=today(),
-            form=form,
-            error=str(e),
-            status_code=422,
-        )
+        return _post_page(request, db, user, kind, form, error=str(e), status_code=422)
     flash(request, "Geplaatst.")
     return redirect(("/aangeboden" if kind == Kind.OFFER else "/gezocht") + f"#l{listing.id}")
 
@@ -389,9 +417,12 @@ def react(
     background: BackgroundTasks,
     listing_id: int,
     next: str = Form(""),
+    offer_type: str | None = Form(None),
     offer_start: str | None = Form(None),
     offer_end: str | None = Form(None),
-    offer_type: str | None = Form(None),
+    offer_daypart: str | None = Form(None),
+    offer_hall: str | None = Form(None),
+    offer_workplace: str | None = Form(None),
     user=Depends(require_user),
     db=Depends(get_db),
 ):
@@ -403,9 +434,12 @@ def react(
         user,
         listing_id,
         today=today(),
+        offer_type=offer_type,
         offer_start=offer_start,
         offer_end=offer_end,
-        offer_type=offer_type,
+        offer_daypart=offer_daypart,
+        offer_hall=offer_hall,
+        offer_workplace=offer_workplace,
         ok="Gereageerd.",
         next_url=next,
         default="/aangeboden",

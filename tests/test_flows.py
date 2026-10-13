@@ -308,9 +308,11 @@ def test_wanted_flow_offerer_becomes_giver(people):
     assert listing.wanted_type_list == ["H", "HG"]
 
     r = s_client.post(
-        f"/listings/{listing.id}/react", data={"offer_start": "19:00"}, follow_redirects=True
+        f"/listings/{listing.id}/react",
+        data={"offer_type": "G", "offer_start": "19:00"},
+        follow_redirects=True,
     )
-    assert "begin- en eindtijd" in r.text
+    assert "begin- als eindtijd" in r.text
     s_client.post(
         f"/listings/{listing.id}/react",
         data={"offer_start": "19:00", "offer_end": "23:00", "offer_type": "G"},
@@ -470,25 +472,38 @@ def test_open_redirects_blocked(target):
 
 
 def test_planning_mail_template():
-    from app.shifts import planning_mail
+    from app.shifts import ShiftInfo, planning_mail
 
+    full = ShiftInfo("HG", date(2026, 10, 17), "18:00", "23:30", None, "Grote Zaal", "Foyer 2")
     m = planning_mail(
         planning="p@x.nl",
         giver_name="A Een",
         giver_email="a@x.nl",
         taker_name="B Twee",
         taker_email="b@x.nl",
-        day=date(2026, 10, 17),
-        start="18:00",
-        end="23:30",
-        code="HG",
+        shift=full,
     )
     assert m.subject == "Dienstruil za 17 okt · HG 18:00–23:30"
     assert "B Twee neemt de volgende dienst over van A Een" in m.body
     assert "zaterdag 17 oktober (2026-10-17)" in m.body
-    assert "HG (Horeca (bar) → Garderobe)" in m.body
+    assert "Soort:    HG" in m.body and "Zaal:     Grote Zaal" in m.body
+    assert "Werkplek: Foyer 2" in m.body
     assert m.cc == ["a@x.nl", "b@x.nl"]
     assert m.mailto.startswith("mailto:p%40x.nl?cc=")
+
+    # Only what was filled in: "HG, saturday evening".
+    bare = ShiftInfo("HG", date(2026, 10, 17), daypart="avond")
+    m = planning_mail(
+        planning="p@x.nl",
+        giver_name="A",
+        giver_email=None,
+        taker_name="B",
+        taker_email=None,
+        shift=bare,
+    )
+    assert m.subject == "Dienstruil za 17 okt · HG avond"
+    assert "Tijd:     avond" in m.body
+    assert "Zaal" not in m.body and "Werkplek" not in m.body
 
 
 # ---------------------------------------------------------------- join link (no email)
@@ -559,3 +574,69 @@ def test_mail_disabled_hides_email_login(monkeypatch):
     monkeypatch.setattr(settings, "dev_mode", False)
     assert not settings.mail_enabled
     assert 'name="email"' not in TestClient(app).get("/login").text
+
+
+# ---------------------------------------------------------------- optional shift details
+
+
+def test_offer_with_only_type_and_date(people):
+    _, client = people["daan"]
+    day = TODAY + timedelta(days=3)
+    r = client.post("/plaatsen", data={"kind": "offer", "day": day.isoformat(), "code": "HG"})
+    assert r.status_code == 200, r.text
+    with SessionLocal() as s:
+        listing = s.scalars(select(Listing)).one()
+        assert (listing.start, listing.end, listing.daypart, listing.hall) == (None,) * 4
+
+
+def test_offer_with_all_details(people):
+    _, client = people["daan"]
+    day = (TODAY + timedelta(days=3)).isoformat()
+    client.post(
+        "/plaatsen",
+        data={
+            "kind": "offer",
+            "day": day,
+            "code": "H",
+            "start": "19:10",
+            "end": "22:30",
+            "daypart": "avond",
+            "hall": " Grote  Zaal ",
+            "workplace": "Foyer 2",
+            "note": "BHV",
+        },
+    )
+    with SessionLocal() as s:
+        listing = s.scalars(select(Listing)).one()
+        assert listing.info.when == "19:10–22:30"  # a time wins over the part of day
+        assert listing.daypart is None
+        assert listing.info.where == "Grote Zaal · Foyer 2"
+    _, other = people["sanne"]
+    page = other.get("/aangeboden").text
+    assert "Grote Zaal · Foyer 2" in page and "19:10–22:30" in page
+    # ...and the zaal is suggested next time
+    assert '<option value="Grote Zaal">' in client.get("/plaatsen").text
+
+
+def test_half_a_time_is_rejected(people):
+    _, client = people["daan"]
+    day = (TODAY + timedelta(days=3)).isoformat()
+    r = client.post("/plaatsen", data={"kind": "offer", "day": day, "code": "H", "start": "19:00"})
+    assert r.status_code == 422 and "begin- als eindtijd" in r.text
+
+
+def test_wanted_reply_with_only_a_type(people):
+    noor, n_client = people["noor"]
+    _, s_client = people["sanne"]
+    day = (TODAY + timedelta(days=4)).isoformat()
+    n_client.post(
+        "/plaatsen", data={"kind": "wanted", "day": day, "codes": ["H"], "daypart": "avond"}
+    )
+    with SessionLocal() as s:
+        listing = s.scalars(select(Listing)).one()
+        assert listing.daypart == "avond"
+    s_client.post(
+        f"/listings/{listing.id}/react", data={"offer_type": "HG", "offer_daypart": "avond"}
+    )
+    r = reactions(listing.id)[0]
+    assert (r.offer_type, r.offer_daypart, r.offer_start) == ("HG", "avond", None)

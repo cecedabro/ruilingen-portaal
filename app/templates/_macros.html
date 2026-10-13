@@ -1,29 +1,35 @@
-{% macro code(c, sm=false) -%}
-<span class="code{{ ' sm' if sm }}" title="{{ explain(c) }}">{% for ch in c %}<span class="k-{{ ch }}">{{ ch }}</span>{% endfor %}</span>
+{# Shift type as one label, like the rostering system: "HG", not coloured letters. #}
+{% macro code(c) -%}<span class="label">{{ c }}</span>{%- endmacro %}
+
+{# Time or part of day, and zaal · werkplek, whichever were filled in. #}
+{% macro details(info) -%}
+{% if info.when %}<span class="time">{{ info.when }}</span>{% endif %}
+{% if info.where %}<span class="where">{{ info.where }}</span>{% endif %}
 {%- endmacro %}
 
-{# One listing as a ticket stub. `rank` is shown on the boards, `extra` is appended inside the body. #}
+{% macro offer_fields(prefix, l=none) -%}
+<div class="grid3">
+  <div class="field"><label for="{{ prefix }}p{{ l.id if l }}">Dagdeel</label>
+    <select id="{{ prefix }}p{{ l.id if l }}" name="{{ prefix }}daypart"><option value="">–</option>{% for p in DAYPARTS %}<option>{{ p }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="{{ prefix }}s{{ l.id if l }}">Begin</label><input type="time" id="{{ prefix }}s{{ l.id if l }}" name="{{ prefix }}start"></div>
+  <div class="field"><label for="{{ prefix }}e{{ l.id if l }}">Eind</label><input type="time" id="{{ prefix }}e{{ l.id if l }}" name="{{ prefix }}end"></div>
+</div>
+{%- endmacro %}
+
 {% macro card(l, user, rank=none, next="", extra="") -%}
 {% set mine = l.user_id == user.id %}
 {% set pending = l.pending_reactions %}
 {% set my_reaction = pending | selectattr("user_id", "equalto", user.id) | first %}
-<article class="card" id="l{{ l.id }}">
-  <div class="stub">
-    {% if rank %}<span class="rank">#{{ rank }}</span>{% endif %}
-    {% if l.kind == "offer" %}{{ code(l.shift_type) }}
-    {% else %}<div class="types">{% for t in l.wanted_type_list %}{{ code(t, true) }}{% endfor %}</div>{% endif %}
+<article class="card{{ ' mine' if mine }}" id="l{{ l.id }}">
+  <div class="head">
+    <span class="when">{{ fmt_date(l.date) }}</span>
+    <span class="labels">{% if l.kind == "offer" %}{{ code(l.shift_type) }}{% else %}{% for t in l.wanted_type_list %}{{ code(t) }}{% endfor %}{% endif %}</span>
   </div>
-  <div class="body">
-    <div class="row">
-      <span class="when">{{ fmt_date(l.date) }}</span>
-      {% if l.start %}<span class="time">{{ l.start }}–{{ l.end }}</span>{% endif %}
-    </div>
-    <div class="row">
-      <span>{{ "Jij" if mine else l.user.name }}</span>
-      <span class="meta mono">{{ stamp(l.created_at) }}</span>
-    </div>
-    {% if l.note %}<p class="note">{{ l.note }}</p>{% endif %}
-    <div class="actions">
+  {% if l.info.when or l.info.where %}<div class="sub">{{ details(l.info) }}</div>{% endif %}
+  {% if l.note %}<p class="note">{{ l.note }}</p>{% endif %}
+  <div class="foot">
+    <span class="meta">{% if rank %}<span class="rank">#{{ rank }}</span> {% endif %}{{ "Jij" if mine else l.user.name }} · <span class="mono">{{ stamp(l.created_at) }}</span></span>
+    <span class="actions">
       {% if mine %}
         {% if not extra %}<a class="pill {{ 'wait' if pending else 'off' }}" href="/mijn#l{{ l.id }}">{{ pending | length }} reactie{{ '' if pending | length == 1 else 's' }}</a>{% endif %}
       {% elif my_reaction %}
@@ -33,29 +39,33 @@
           <button class="linkish" type="submit">Intrekken</button>
         </form>
       {% elif l.kind == "offer" %}
+        {% if pending %}<span class="meta">{{ pending | length }} eerder</span>{% endif %}
         <form class="inline" method="post" action="/listings/{{ l.id }}/react">
           <input type="hidden" name="next" value="{{ next }}">
-          <button class="btn primary" type="submit">Ik neem 'm</button>
+          <button class="btn primary" type="submit">Overnemen</button>
         </form>
-        {% if pending %}<span class="meta">{{ pending | length }} eerder</span>{% endif %}
-      {% else %}
-        <details class="offer">
-          <summary class="btn primary">Ik heb er een</summary>
-          <form class="offerform" method="post" action="/listings/{{ l.id }}/react">
-            <input type="hidden" name="next" value="{{ next }}">
-            <div class="field"><label for="os{{ l.id }}">Begin</label><input type="time" id="os{{ l.id }}" name="offer_start" required></div>
-            <div class="field"><label for="oe{{ l.id }}">Eind</label><input type="time" id="oe{{ l.id }}" name="offer_end" required></div>
-            <div class="field"><label for="ot{{ l.id }}">Soort</label>
-              <select id="ot{{ l.id }}" name="offer_type">
-                {% for t in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
-                {% for t in SHIFT_TYPES if t not in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
-              </select></div>
-            <button class="btn primary" type="submit">Aanbieden</button>
-          </form>
-        </details>
       {% endif %}
-    </div>
-    {{ extra }}
+    </span>
   </div>
+  {% if l.kind == "wanted" and not mine and not my_reaction %}
+  <details class="offer">
+    <summary class="btn primary">Ik heb er een</summary>
+    <form class="stack" method="post" action="/listings/{{ l.id }}/react">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="field"><label for="ot{{ l.id }}">Soort</label>
+        <select id="ot{{ l.id }}" name="offer_type">
+          {% for t in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
+          {% for t in SHIFT_TYPES if t not in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
+        </select></div>
+      {{ offer_fields("offer_", l) }}
+      <div class="grid2">
+        <div class="field"><label for="oh{{ l.id }}">Zaal</label><input id="oh{{ l.id }}" name="offer_hall" maxlength="60" list="halls"></div>
+        <div class="field"><label for="ow{{ l.id }}">Werkplek</label><input id="ow{{ l.id }}" name="offer_workplace" maxlength="60" list="workplaces"></div>
+      </div>
+      <div><button class="btn primary" type="submit">Aanbieden</button></div>
+    </form>
+  </details>
+  {% endif %}
+  {{ extra }}
 </article>
 {%- endmacro %}

@@ -16,6 +16,9 @@ PARTS = {
 }
 SHIFT_TYPES = ["H", "HG", "GH", "G", "CGH", "CHG", "CH", "R", "PH", "PHG", "PGH", "I"]
 
+# Part of the day, for when the exact time doesn't matter or isn't known yet.
+DAYPARTS = ["ochtend", "middag", "avond"]
+
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DAYS = ["ma", "di", "wo", "do", "vr", "za", "zo"]
@@ -73,6 +76,31 @@ def fmt_stamp(dt: datetime, now: datetime) -> str:
 
 
 @dataclass
+class ShiftInfo:
+    """One shift's what/when/where, whichever optional parts were filled in."""
+
+    code: str
+    day: date
+    start: str | None = None
+    end: str | None = None
+    daypart: str | None = None
+    hall: str | None = None
+    workplace: str | None = None
+
+    @property
+    def when(self) -> str:
+        """'19:10–22:30', 'avond' or ''."""
+        if self.start and self.end:
+            return f"{self.start}–{self.end}"
+        return self.daypart or ""
+
+    @property
+    def where(self) -> str:
+        """'Grote Zaal · Foyer 1', one of them, or ''."""
+        return " · ".join(p for p in (self.hall, self.workplace) if p)
+
+
+@dataclass
 class PlanningMail:
     to: str
     cc: list[str]
@@ -97,24 +125,32 @@ def planning_mail(
     giver_email: str | None,
     taker_name: str,
     taker_email: str | None,
-    day: date,
-    start: str,
-    end: str,
-    code: str,
+    shift: ShiftInfo,
 ) -> PlanningMail:
+    lines = [
+        f"  Datum:    {fmt_date_long(shift.day)} ({shift.day.isoformat()})",
+        f"  Soort:    {shift.code}",
+    ]
+    if shift.when:
+        lines.append(f"  Tijd:     {shift.when}")
+    if shift.hall:
+        lines.append(f"  Zaal:     {shift.hall}")
+    if shift.workplace:
+        lines.append(f"  Werkplek: {shift.workplace}")
     body = (
         "Beste planning,\n\n"
         f"{taker_name} neemt de volgende dienst over van {giver_name}:\n\n"
-        f"  Datum:  {fmt_date_long(day)} ({day.isoformat()})\n"
-        f"  Tijd:   {start}–{end}\n"
-        f"  Soort:  {code} ({explain(code)})\n\n"
-        "Wij hebben dit allebei bevestigd.\n\n"
+        + "\n".join(lines)
+        + "\n\nWij hebben dit allebei bevestigd.\n\n"
         "Met vriendelijke groet,\n"
         f"{giver_name} en {taker_name}"
     )
+    subject = f"Dienstruil {fmt_date(shift.day)} · {shift.code}"
+    if shift.when:
+        subject += f" {shift.when}"
     return PlanningMail(
         to=planning,
         cc=[e for e in (giver_email, taker_email) if e],
-        subject=f"Dienstruil {fmt_date(day)} · {code} {start}–{end}",
+        subject=subject,
         body=body,
     )

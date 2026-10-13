@@ -9,12 +9,11 @@
 {% for l, deal, mail in items %}
   {% if deal %}
   <article class="deal" id="l{{ l.id }}">
-    <div class="row">
-      <span class="pill ok">Rond</span>
-      <span class="when">{{ fmt_date(deal.day) }}</span>
-      <span class="time">{{ deal.start }}–{{ deal.end }}</span>
-      {{ m.code(deal.code, true) }}
+    <div class="head">
+      <span class="when">{{ fmt_date(deal.shift.day) }}</span>
+      <span class="labels"><span class="pill ok">Rond</span> {{ m.code(deal.shift.code) }}</span>
     </div>
+    {% if deal.shift.when or deal.shift.where %}<div class="sub">{{ m.details(deal.shift) }}</div>{% endif %}
     <div>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}.</div>
     {% if l.mail_sent_at %}
     <div class="meta">Planning gemaild door {{ l.mail_sent_by.name if l.mail_sent_by else "een van jullie" }}, {{ stamp(l.mail_sent_at) }}</div>
@@ -40,7 +39,7 @@
       <div class="react">
         <span class="rank">#{{ loop.index }}</span>
         <span class="who-n">{{ r.user.name }}</span>
-        {% if r.offer_type %}<span>{{ m.code(r.offer_type, true) }} <span class="time">{{ r.offer_start }}–{{ r.offer_end }}</span></span>{% endif %}
+        {% if r.offer_type %}<span>{{ m.code(r.offer_type) }} {{ m.details(r.offer_info) }}</span>{% endif %}
         <span class="meta mono">{{ stamp(r.created_at) }}</span>
         <div class="actions">
           <form class="inline" method="post" action="/reactions/{{ r.id }}/accept"><button class="btn ok" type="submit">Bevestigen</button></form>

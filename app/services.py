@@ -28,7 +28,7 @@ from app.models import (
     User,
     utcnow,
 )
-from app.shifts import fmt_date, is_shift_type, is_time
+from app.shifts import DAYPARTS, ShiftInfo, fmt_date, is_shift_type, is_time
 
 MAX_OPEN_LISTINGS = 30
 MAX_NOTE = 200
@@ -111,25 +111,57 @@ def _check_capacity(db: Session, user: User, today: date) -> None:
         raise SwapError(f"Je hebt al {MAX_OPEN_LISTINGS} open diensten staan.")
 
 
+def shift_details(
+    *,
+    start: str | None = None,
+    end: str | None = None,
+    daypart: str | None = None,
+    hall: str | None = None,
+    workplace: str | None = None,
+) -> dict:
+    """The optional when/where of a shift. Either a time (both ends), or a part of the day, or
+    nothing at all; zaal and werkplek are free text."""
+    start, end = (start or "").strip(), (end or "").strip()
+    if start or end:
+        if not (is_time(start) and is_time(end)):
+            raise SwapError("Vul zowel een begin- als eindtijd in, of laat ze allebei leeg.")
+        if start == end:
+            raise SwapError("Begin- en eindtijd zijn gelijk.")
+        daypart = None  # the time says it all
+    else:
+        start = end = None
+        daypart = daypart if daypart in DAYPARTS else None
+
+    def short(value: str | None, label: str) -> str | None:
+        value = " ".join((value or "").split())
+        if len(value) > 60:
+            raise SwapError(f"{label} mag maximaal 60 tekens zijn.")
+        return value or None
+
+    return {
+        "start": start,
+        "end": end,
+        "daypart": daypart,
+        "hall": short(hall, "Zaal"),
+        "workplace": short(workplace, "Werkplek"),
+    }
+
+
 def create_offer(
-    db: Session, user: User, *, day: date, start: str, end: str, code: str, note: str, today: date
+    db: Session, user: User, *, day: date, code: str, note: str, today: date, **details
 ) -> Listing:
     _check_date(day, today)
-    if not (is_time(start) and is_time(end)):
-        raise SwapError("Vul een geldige begin- en eindtijd in.")
-    if start == end:
-        raise SwapError("Begin- en eindtijd zijn gelijk.")
     if not is_shift_type(code):
         raise SwapError("Kies een soort dienst.")
+    fields = shift_details(**details)
     _check_capacity(db, user, today)
     listing = Listing(
         kind=Kind.OFFER,
         user_id=user.id,
         date=day,
-        start=start,
-        end=end,
         shift_type=code,
         note=_check_note(note),
+        **fields,
     )
     db.add(listing)
     db.flush()
@@ -137,7 +169,14 @@ def create_offer(
 
 
 def create_wanted(
-    db: Session, user: User, *, day: date, codes: list[str], note: str, today: date
+    db: Session,
+    user: User,
+    *,
+    day: date,
+    codes: list[str],
+    note: str,
+    today: date,
+    daypart: str | None = None,
 ) -> Listing:
     _check_date(day, today)
     codes = [c for c in dict.fromkeys(codes) if is_shift_type(c)]
@@ -149,6 +188,7 @@ def create_wanted(
         user_id=user.id,
         date=day,
         wanted_types=",".join(codes),
+        daypart=daypart if daypart in DAYPARTS else None,
         note=_check_note(note),
     )
     db.add(listing)
@@ -176,23 +216,30 @@ def react(
     listing_id: int,
     *,
     today: date,
+    offer_type: str | None = None,
     offer_start: str | None = None,
     offer_end: str | None = None,
-    offer_type: str | None = None,
+    offer_daypart: str | None = None,
+    offer_hall: str | None = None,
+    offer_workplace: str | None = None,
 ) -> Reaction:
     listing = _open_listing(db, listing_id, today)
     if listing.user_id == user.id:
         raise SwapError("Je kunt niet op je eigen dienst reageren.")
     reaction = Reaction(listing_id=listing.id, user_id=user.id)
     if listing.kind == Kind.WANTED:
-        if not (offer_start and offer_end and is_time(offer_start) and is_time(offer_end)):
-            raise SwapError("Vul de begin- en eindtijd van je dienst in.")
-        if offer_start == offer_end:
-            raise SwapError("Begin- en eindtijd zijn gelijk.")
         if not (offer_type and is_shift_type(offer_type)):
             raise SwapError("Kies de soort dienst die je aanbiedt.")
-        reaction.offer_start, reaction.offer_end = offer_start, offer_end
+        fields = shift_details(
+            start=offer_start,
+            end=offer_end,
+            daypart=offer_daypart,
+            hall=offer_hall,
+            workplace=offer_workplace,
+        )
         reaction.offer_type = offer_type
+        for key, value in fields.items():
+            setattr(reaction, f"offer_{key}", value)
     db.add(reaction)
     try:
         db.flush()
@@ -324,10 +371,7 @@ class Deal:
     reaction: Reaction
     giver: User
     taker: User
-    day: date
-    start: str
-    end: str
-    code: str
+    shift: ShiftInfo
 
     @classmethod
     def of(cls, listing: Listing) -> "Deal | None":
@@ -335,19 +379,8 @@ class Deal:
         if r is None:
             return None
         if listing.kind == Kind.OFFER:
-            return cls(
-                listing,
-                r,
-                listing.user,
-                r.user,
-                listing.date,
-                listing.start,
-                listing.end,
-                listing.shift_type,
-            )
-        return cls(
-            listing, r, r.user, listing.user, listing.date, r.offer_start, r.offer_end, r.offer_type
-        )
+            return cls(listing, r, listing.user, r.user, listing.info)
+        return cls(listing, r, r.user, listing.user, r.offer_info)
 
 
 def _with_reactions(stmt):

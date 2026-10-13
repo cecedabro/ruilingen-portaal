@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app import mail, services
 from app.config import get_settings
 from app.models import Kind, Listing, ListingStatus, Reaction, ReactionStatus, User
-from app.shifts import PARTS, SHIFT_TYPES, explain, fmt_date, fmt_date_long, fmt_stamp
+from app.shifts import DAYPARTS, PARTS, SHIFT_TYPES, explain, fmt_date, fmt_date_long, fmt_stamp
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -35,6 +35,7 @@ def _stamp(dt: datetime) -> str:
 templates.env.globals.update(
     PARTS=PARTS,
     SHIFT_TYPES=SHIFT_TYPES,
+    DAYPARTS=DAYPARTS,
     explain=explain,
     fmt_date=fmt_date,
     fmt_date_long=fmt_date_long,
