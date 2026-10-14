@@ -4,6 +4,7 @@ document.documentElement.classList.add("js");
 
 // ------------------------------------------------------------ per-page wiring (re-run after a swap)
 function init(root) {
+  openTarget();
   root.querySelectorAll("[data-copy]").forEach(function (btn) {
     if (!navigator.clipboard) return;
     btn.hidden = false;
@@ -49,6 +50,13 @@ function init(root) {
 }
 
 // "Are you sure?" for destructive forms (data-confirm) and single buttons (data-confirm-click).
+// A link to one shift (#l42, e.g. after reacting) opens that card.
+function openTarget() {
+  var el = location.hash && document.getElementById(location.hash.slice(1));
+  if (el && el.tagName === "DETAILS") el.open = true;
+}
+window.addEventListener("hashchange", openTarget);
+
 document.addEventListener("submit", function (e) {
   var msg = e.target.dataset.confirm;
   if (msg && !window.confirm(msg)) e.preventDefault();

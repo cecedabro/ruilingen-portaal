@@ -48,6 +48,7 @@ app/
     appdata.py         runtime settings (zaal/werkplek lists, mail template)
     planning.py        the email to planning, with the admin-editable template
     housekeeping.py    deleting old data
+    demo.py            made-up colleagues and shifts for the pilot, removable in one go
     transaction.py     run_write (retry on write conflicts), notification outbox
     errors.py          UserError
   web/
@@ -85,8 +86,9 @@ Example: Sanne taps **Overnemen** on Daan's shift.
    `transaction.run_write`: a fresh transaction, committed at the end, retried if SQLite
    reports a write conflict.
 6. `services/listings.py:react` validates (listing still open, not your own, not already
-   reacted), inserts the reaction, and calls `notify()` for Daan: an in-app notification row,
-   plus an email queued on the session if Daan verified an address and mail is on.
+   reacted), inserts the reaction, and calls `notify(…, mail=True)` for Daan: an in-app
+   notification row, plus an email queued on the session if Daan verified an address and mail
+   is on. (Reactions are the only event that mails; everything else is bell-only.)
 7. After the commit, queued mails go to a background task; the user gets a flash message
    ("Gereageerd.") and a `303` redirect back to the board (POST → redirect → GET, so a
    refresh never resubmits).
@@ -98,7 +100,9 @@ turns it into an error flash and the same redirect.
 ## Frontend
 
 - **Server-rendered.** Every page is complete HTML. Templates extend `base.html` (header, tab
-  bar, flash messages, footer); `_macros.html` has the shift card used on every board.
+  bar, flash messages, footer); `_macros.html` has the shift card used on every board: a
+  `<details>` element whose two-line summary (day + time + type, then who + status) is the
+  list view, and which opens on tap to show zaal/werkplek/opmerking and the actions.
 - **No framework.** `static/app.js` (~150 lines) only does progressive enhancement:
   - *instant navigation*: the four tabs are fetched in the background after a page loads
     (with an `X-Prefetch` header) and links swap `<body>` in place instead of reloading. A

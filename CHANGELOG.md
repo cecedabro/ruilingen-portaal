@@ -14,6 +14,21 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.8.0 (2026-10-14)
+- New compact shift cards: day first (bold), start–end time smaller next to it, type on the
+  right; #rank, name, vandaag/morgen and reaction status on the second line. Tap a card to
+  open zaal/werkplek/opmerking and the actions. On Mijn, shifts that need you open by
+  themselves.
+- Notification mail only for "someone reacted to your shift" (one on/off switch on Account);
+  clearer mail text with a direct link. Everything else stays in the bell.
+- Demo data for the pilot: made-up colleagues and shifts (`python -m app.cli demo-seed`),
+  removable with one button on Beheer ("Demo-data verwijderen") or `demo-remove`.
+- deploy/README.md: step-by-step mail setup.
+
+- Schema change: none. Rollback = pin the previous image tag.
+- New secret keys: none (mail stays off until SMTP_USERNAME/SMTP_PASSWORD are added).
+- Manifest changes: none
+
 ## 0.7.0 (2026-10-14)
 - Date shown inside every shift card (calendar tile) with the time next to it, plus
   "vandaag"/"morgen"; no more separate day headings. Overall styling pass: white cards on a

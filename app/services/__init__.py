@@ -12,5 +12,6 @@ with other users go through `transaction.run_write`.
     appdata        settings admins edit at runtime (zaal/werkplek lists, mail template)
     planning       the email to planning for a completed swap
     housekeeping   deleting old data
+    demo           made-up colleagues and shifts for the pilot, removable in one go
     transaction    run_write (retry on SQLite write conflicts) and the notification outbox
 """

@@ -72,10 +72,11 @@ def test_pending_status_is_visible_to_others(people):
     assert "Overnemen" in s_client.get("/aangeboden").text
     n.post(f"/listings/{lid}/react")
     page = s_client.get("/aangeboden").text
-    assert "1 reactie · wacht op Daan" in page and "Reageer als 2e" in page
-    assert "je bent de eerste" in n.get("/aangeboden").text
+    # visible on the closed card, and explained when it's opened
+    assert ">1 reactie<" in page and "wacht op Daan" in page and "Reageer als 2e" in page
+    assert "Je bent de eerste" in n.get("/aangeboden").text
     s_client.post(f"/listings/{lid}/react")
-    assert "je bent 2e" in s_client.get("/aangeboden").text
+    assert "Je bent de 2e" in s_client.get("/aangeboden").text
 
 
 def test_roster_horizon_follows_tuesday_release():

@@ -1,23 +1,26 @@
-{#- Shared building blocks for the boards, "Mijn" and Beheer. -#}
+{#- Shared building blocks for the boards, "Mijn" and Beheer.
+
+    A shift is a <details> element: the summary (two lines: day + time + type, then who and
+    status) is all you see in the list; tapping it opens the details and the actions. No
+    JavaScript needed. `open` starts it expanded (e.g. your own shift with reactions). -#}
 
 {# Shift type as one label, like the rostering system: "HG", not coloured letters. #}
 {% macro code(c) -%}<span class="label">{{ c }}</span>{%- endmacro %}
 
-{# The date as a small calendar tile: weekday, day, month. #}
-{% macro date_tile(day) -%}
-<div class="tile{{ ' soon' if relative_day(day) }}" aria-label="{{ fmt_date_long(day) }}">
-  <span class="wd">{{ DAYS[day.weekday()] }}</span><span class="dn">{{ day.day }}</span><span class="mo">{{ MONTHS[day.month - 1] }}</span>
-</div>
+{# "Do 15 okt" #}
+{% macro day_label(day) -%}{{ fmt_date(day) | capitalize }}{%- endmacro %}
+
+{# "19:10 – 22:30", or the dagdeel of a wanted request. #}
+{% macro time_label(info) -%}
+{%- if info.start %}{{ info.start }} – {{ info.end }}{% elif info.daypart %}{{ info.daypart }}{% endif -%}
 {%- endmacro %}
 
-{# "19:10–22:30", or the dagdeel of a wanted request, plus "vandaag"/"morgen". #}
-{% macro when(info) -%}
-<span class="when">
-  {%- if info.start %}<span class="time">{{ info.start }}–{{ info.end }}</span>
-  {%- elif info.daypart %}<span class="daypart">{{ info.daypart }}</span>
-  {%- else %}<span class="daypart">hele dag</span>{% endif %}
-  {%- if relative_day(info.day) %} <span class="soon-pill">{{ relative_day(info.day) }}</span>{% endif -%}
-</span>
+{# The always-visible first line of a card. #}
+{% macro headline(info, codes) -%}
+<div class="line1">
+  <span class="day">{{ day_label(info.day) }}<span class="time">{{ time_label(info) }}</span></span>
+  <span class="labels">{% for c in codes %}{{ code(c) }}{% endfor %}</span>
+</div>
 {%- endmacro %}
 
 {# Zaal / Werkplek / Opmerking, only the ones that were filled in. #}
@@ -43,42 +46,49 @@
 </div>
 {%- endmacro %}
 
-{#- One listing as a card. `rank` = posting order (#1 posted first); `extra` is appended
-    inside the card (the owner's reaction list on "Mijn"). -#}
-{% macro shift(l, user, next="", extra="", rank=none, halls=[], workplaces=[]) -%}
+{#- One listing. `rank` = posting order (#1 posted first); `extra` is appended inside the
+    opened card (the owner's list of reactions on "Mijn"). -#}
+{% macro shift(l, user, next="", extra="", rank=none, halls=[], workplaces=[], open=false) -%}
 {% set mine = l.user_id == user.id %}
 {% set pending = l.pending_reactions %}
 {% set mine_r = pending | selectattr("user_id", "equalto", user.id) | first %}
-<article class="shift{{ ' is-mine' if mine }}" id="l{{ l.id }}">
-  {{ date_tile(l.date) }}
-  <div class="body">
-    <div class="shead">
-      {{ when(l.info) }}
-      <span class="labels">{% if l.kind == "offer" %}{{ code(l.shift_type) }}{% else %}{% for t in l.wanted_type_list %}{{ code(t) }}{% endfor %}{% endif %}</span>
+{% set n = pending | length %}
+<details class="shift{{ ' is-mine' if mine }}" id="l{{ l.id }}" {% if open %}open{% endif %}>
+  <summary>
+    {{ headline(l.info, [l.shift_type] if l.kind == "offer" else l.wanted_type_list) }}
+    <div class="line2">
+      <span class="who">
+        {% if rank %}<span class="rank" title="{{ rank }}e geplaatst">#{{ rank }}</span>{% endif %}
+        <span>{{ "Jij" if mine else l.user.name }}</span>
+        {% if relative_day(l.date) %}<span class="soon">{{ relative_day(l.date) }}</span>{% endif %}
+        {% if mine %}<span class="status {{ 'wait' if n else 'idle' }}">{{ n }} reactie{{ '' if n == 1 else 's' }}</span>
+        {% elif mine_r %}<span class="status wait">gereageerd</span>
+        {% elif n %}<span class="status wait">{{ n }} reactie{{ '' if n == 1 else 's' }}</span>{% endif %}
+      </span>
+      <span class="chev" aria-hidden="true"></span>
     </div>
-    <div class="who">
-      {% if rank %}<span class="rank" title="{{ rank }}e geplaatst">#{{ rank }}</span>{% endif %}
-      <b>{{ "Jij" if mine else l.user.name }}</b>
-    </div>
+  </summary>
+
+  <div class="more">
     {{ facts(l.info, l.note) }}
 
     {% if not (mine and extra) %}
     <div class="act">
       {% if mine %}
-        <a class="status {{ 'wait' if pending else 'idle' }}" href="/mijn#l{{ l.id }}">{{ pending | length }} reactie{{ '' if pending | length == 1 else 's' }}</a>
+        <a class="linkish" href="/mijn#l{{ l.id }}">Bekijk in Mijn</a>
       {% elif mine_r %}
         {% set pos = (pending | map(attribute="id") | list).index(mine_r.id) + 1 %}
-        <span class="status wait">Gereageerd · {{ "je bent de eerste" if pos == 1 else "je bent " ~ pos ~ "e" }}</span>
+        <span class="status wait">{{ "Je bent de eerste" if pos == 1 else "Je bent de " ~ pos ~ "e" }} · wacht op {{ l.user.first_name }}</span>
         <form class="inline" method="post" action="/reactions/{{ mine_r.id }}/withdraw">
           <input type="hidden" name="next" value="{{ next }}">
           <button class="linkish" type="submit">Intrekken</button>
         </form>
       {% else %}
-        {% if pending %}<span class="status wait">{{ pending | length }} reactie{{ '' if pending | length == 1 else 's' }} · wacht op {{ l.user.first_name }}</span>{% endif %}
+        {% if n %}<span class="status wait">wacht op {{ l.user.first_name }}</span>{% endif %}
         {% if l.kind == "offer" %}
         <form class="inline" method="post" action="/listings/{{ l.id }}/react">
           <input type="hidden" name="next" value="{{ next }}">
-          <button class="btn {{ 'secondary' if pending else 'primary' }}" type="submit">{{ "Reageer als " ~ (pending | length + 1) ~ "e" if pending else "Overnemen" }}</button>
+          <button class="btn {{ 'secondary' if n else 'primary' }}" type="submit">{{ "Reageer als " ~ (n + 1) ~ "e" if n else "Overnemen" }}</button>
         </form>
         {% endif %}
       {% endif %}
@@ -87,7 +97,7 @@
 
     {% if l.kind == "wanted" and not mine and not mine_r %}
     <details class="offer">
-      <summary class="btn {{ 'secondary' if pending else 'primary' }}">Ik heb er een</summary>
+      <summary class="btn {{ 'secondary' if n else 'primary' }}">Ik heb er een</summary>
       <form class="stack" method="post" action="/listings/{{ l.id }}/react">
         <input type="hidden" name="next" value="{{ next }}">
         <div class="field"><label for="ot{{ l.id }}">Soort</label>
@@ -109,5 +119,5 @@
     {% endif %}
     {{ extra }}
   </div>
-</article>
+</details>
 {%- endmacro %}

@@ -88,58 +88,59 @@ header.top .wrap{padding-bottom:0}
   .tabbar b{position:static}
 }
 
-/* ---------------------------------------------------------------- shift cards */
+/* ---------------------------------------------------------------- shift cards
+   A <details>: the summary is the compact two-line card; the rest opens on tap.
+   Line 1: day (most important) + time (smaller, same font) ··· type label.
+   Line 2: #rank, who, vandaag/morgen, status ··· chevron. */
 .list{display:grid;gap:8px;margin-top:12px}
-.shift{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start;padding:12px;
-  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+.shift{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
   scroll-margin-top:120px}
+.shift[open]{border-color:var(--accent-line)}
 .shift:target{border-color:var(--accent)}
 .shift.is-mine{box-shadow:inset 3px 0 0 var(--accent),var(--shadow)}
 .shift.deal{border-color:var(--ok)}
+.shift>summary{list-style:none;cursor:pointer;padding:12px 14px;display:grid;gap:4px;-webkit-tap-highlight-color:transparent}
+.shift>summary::-webkit-details-marker{display:none}
 
-.tile{display:flex;flex-direction:column;align-items:center;padding:6px 0 7px;border-radius:10px;
-  background:var(--accent-soft);color:var(--accent);line-height:1.05;text-align:center}
-.tile .wd,.tile .mo{font-size:11px;font-weight:600}
-.tile .dn{font-size:22px;font-weight:700;margin:1px 0;font-variant-numeric:tabular-nums}
-.tile.soon{background:var(--accent);color:var(--accent-ink)}
+.line1,.line2{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.day{font-size:17px;font-weight:700;letter-spacing:-.01em;min-width:0}
+.time{margin-left:8px;font-size:14px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.labels{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;flex:none;max-width:50%}
+.label{display:inline-block;background:var(--accent);color:var(--accent-ink);font-size:13px;font-weight:700;
+  line-height:1;padding:5px 10px;border-radius:999px}
+.who{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0;font-size:14px;color:var(--ink-2)}
+.rank{font-size:11px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:var(--accent);
+  border:1px solid var(--accent-line);border-radius:5px;padding:2px 4px}
+.soon{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:999px}
+.chev{flex:none;width:8px;height:8px;margin-right:4px;border:solid var(--muted);border-width:0 2px 2px 0;
+  transform:rotate(-45deg);transition:transform .15s}
+.shift[open]>summary .chev{transform:rotate(45deg)}
 
-.body{min-width:0;display:grid;gap:4px}
-.shead{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:26px}
-.when{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0}
-.time{font:650 15px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
-.daypart{font-size:15px;font-weight:600;color:var(--ink-2)}
-.soon-pill{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:999px}
-.labels{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;flex:none;max-width:55%}
-.label{display:inline-block;background:var(--accent);color:var(--accent-ink);font:650 12px/1 var(--f-body);padding:5px 9px;border-radius:999px}
-.who{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:15px}
-.rank{font:600 12px/1 var(--f-mono);color:var(--accent);border:1px solid var(--accent-line);border-radius:6px;padding:3px 5px}
-
-.facts{margin:2px 0 0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 8px;font-size:13px;line-height:1.4}
+.more{display:grid;gap:10px;margin:0 14px;padding:12px 0 14px;border-top:1px solid var(--line)}
+.facts{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:13px;line-height:1.4}
 .facts div{display:contents}
-.facts dt{flex:none;font-size:13px;font-weight:600;color:var(--muted)}
-.facts dt::after{content:":"}
-.facts dd{margin:0;font-size:13px;color:var(--ink-2);overflow-wrap:anywhere}
+.facts dt{font-weight:600;color:var(--muted)}
+.facts dd{margin:0;color:var(--ink-2);overflow-wrap:anywhere}
 
-.act{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-top:8px;
-  padding-top:10px;border-top:1px solid var(--line)}
-.status{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font-size:12px;
-  font-weight:600;text-decoration:none;margin-right:auto}
+.act{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.status{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;text-decoration:none}
 .status.wait{background:var(--warn-bg);color:var(--warn)}
 .status.idle{background:var(--surface-2);color:var(--muted)}
-.status.ok{background:var(--ok-bg);color:var(--ok);margin-right:0}
-.admin-del{display:flex;justify-content:flex-end;margin-top:2px}
+.status.ok{background:var(--ok-bg);color:var(--ok)}
+.act .status{margin-right:auto;padding:4px 10px}
+.admin-del{display:flex;justify-content:flex-end}
 .admin-del .linkish.danger{font-size:12px;font-weight:500;color:var(--muted);text-decoration-color:var(--line)}
 .admin-del .linkish.danger:hover{color:var(--bad)}
 .empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r);margin-top:12px}
 
 /* reply form on a wanted request */
-details.offer>summary{list-style:none;width:max-content;margin:8px 0 0 auto}
+details.offer>summary{list-style:none;width:max-content;margin-left:auto}
 details.offer>summary::-webkit-details-marker{display:none}
 details.offer[open]>summary{display:none}
-.stack{display:grid;gap:12px;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)}
+.stack{display:grid;gap:12px}
 
 /* the owner's list of reactions ("Mijn") */
-.reactions{display:grid;gap:8px;margin-top:8px;padding-top:10px;border-top:1px solid var(--line)}
+.reactions{display:grid;gap:8px}
 .react{display:grid;gap:6px;padding:10px;border-radius:var(--r-sm);background:var(--surface-2)}
 .react-who{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 .react .actions{justify-content:flex-end}
@@ -284,4 +285,4 @@ header.top{view-transition-name:header}
 .tabbar{view-transition-name:tabbar}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.12s}
 @media (prefers-reduced-motion:reduce){ @view-transition{navigation:none} }
-@media (max-width:380px){ .shift{gap:10px;padding:10px} .tile .dn{font-size:20px} }
+@media (max-width:360px){ .day{font-size:16px} .time{margin-left:6px;font-size:13px} }

@@ -204,7 +204,7 @@ def react(
         text = f"{user.name} wil je {listing.shift_type}-dienst van {when} overnemen."
     else:
         text = f"{user.name} biedt je een {offer_type}-dienst aan op {when}."
-    notify(db, listing.user, text)
+    notify(db, listing.user, text, f"/mijn#l{listing.id}", mail=True)
     return reaction
 
 

@@ -8,15 +8,20 @@
 <div class="list">
 {% for l, deal, mail in items %}
   {% if deal %}
-  {#- A completed swap: who takes over from whom, and the email to planning. -#}
-  <article class="shift deal" id="l{{ l.id }}">
-    {{ m.date_tile(deal.shift.day) }}
-    <div class="body">
-      <div class="shead">
-        {{ m.when(deal.shift) }}
-        <span class="labels"><span class="status ok">Rond</span>{{ m.code(deal.shift.code) }}</span>
+  {#- A completed swap: who takes over from whom, and the email to planning.
+      Open until someone has mailed planning. -#}
+  <details class="shift deal" id="l{{ l.id }}" {% if not l.mail_sent_at %}open{% endif %}>
+    <summary>
+      {{ m.headline(deal.shift, [deal.shift.code]) }}
+      <div class="line2">
+        <span class="who">
+          <span>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}</span>
+          <span class="status ok">{{ "gemaild" if l.mail_sent_at else "rond" }}</span>
+        </span>
+        <span class="chev" aria-hidden="true"></span>
       </div>
-      <div class="who"><b>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}</b></div>
+    </summary>
+    <div class="more">
       {{ m.facts(deal.shift) }}
       {% if l.mail_sent_at %}
       <p class="meta">Planning gemaild door {{ l.mail_sent_by.name if l.mail_sent_by else "een van jullie" }}, {{ stamp(l.mail_sent_at) }}.</p>
@@ -35,7 +40,7 @@
       <p class="meta">Eén van jullie verstuurt hem, vanuit je eigen mail. Tik daarna op "Verstuurd".</p>
       {% endif %}
     </div>
-  </article>
+  </details>
   {% elif l.user_id == user.id %}
     {#- Your own open listing: the reactions in order, to confirm one. -#}
     {% set pending = l.pending_reactions %}
@@ -61,7 +66,7 @@
       </form>
     </div>
     {% endset %}
-    {{ m.shift(l, user, next="/mijn", extra=extra) }}
+    {{ m.shift(l, user, next="/mijn", extra=extra, open=pending | length > 0) }}
   {% else %}
     {{ m.shift(l, user, next="/mijn") }}
   {% endif %}

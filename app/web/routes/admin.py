@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_db
 from app.models import User
-from app.services import appdata, invites, listings, logins, members, planning
+from app.services import appdata, demo, invites, listings, logins, members, planning
 from app.services.errors import UserError
 from app.services.transaction import run_write
 from app.web.responses import flash, redirect, render, run_action, safe_next, send_queued
@@ -37,6 +37,7 @@ def _page(request: Request, db: Session, user: User, **ctx):
         mail_subject=subject,
         mail_body=body,
         placeholders=planning.PLACEHOLDERS,
+        demo_count=len(demo.demo_user_ids(db)),
         **ctx,
     )
 
@@ -212,3 +213,19 @@ def save_mail_template(
         planning.save_template(db, subject, body)
         flash(request, "Mail opgeslagen.")
     return redirect("/beheer#mail")
+
+
+# ---------------------------------------------------------------- demo data
+
+
+@router.post("/demo/remove")
+def remove_demo(
+    request: Request,
+    background: BackgroundTasks,
+    user=Depends(require_admin),
+    db=Depends(get_db),
+):
+    removed = run_write(db, demo.remove)
+    send_queued(db, background)
+    flash(request, f"{removed} demo-collega's en hun diensten verwijderd.")
+    return redirect("/beheer")

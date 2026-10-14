@@ -114,6 +114,7 @@ public repository:
 | `halls` | zaal choices, one per line |
 | `workplaces` | werkplek choices, one per line |
 | `mail_subject`, `mail_body` | the planning mail template (absent = the default in `services/planning.py`) |
+| `demo_user_ids` | ids of the made-up demo colleagues (`services/demo.py`), so they can be removed in one go |
 
 ## Retention
 

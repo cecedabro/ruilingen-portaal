@@ -22,6 +22,16 @@
 </div>
 {% endif %}
 
+{% if demo_count %}
+<section class="form demo-box">
+  <h2>Demo-data</h2>
+  <p class="meta">Er staan {{ demo_count }} verzonnen collega's met diensten op de site, om te laten zien hoe het werkt. Haal ze weg voordat de echte pilot begint.</p>
+  <form method="post" action="/beheer/demo/remove" data-confirm="Alle demo-collega's en hun diensten verwijderen?">
+    <button class="btn danger" type="submit">Demo-data verwijderen</button>
+  </form>
+</section>
+{% endif %}
+
 <section class="form" id="links">
   <h2>Groepslink</h2>
   <div class="copyrow">

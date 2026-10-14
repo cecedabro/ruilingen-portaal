@@ -15,6 +15,7 @@ from tests.helpers import (
     TODAY,
     notifications_for,
     post_offer,
+    reactions,
 )
 
 
@@ -80,3 +81,18 @@ def test_cleanup_removes_old_data(people, db):
     housekeeping.cleanup(db, get_settings(), TODAY)
     assert db.get(Listing, old.id) is None
     assert db.get(Listing, recent.id) is not None
+
+
+def test_only_reactions_send_mail(people):
+    daan, d_client = people["daan"]
+    noor, n_client = people["noor"]
+    listing = post_offer(d_client)
+    mail.outbox.clear()
+    n_client.post(f"/listings/{listing.id}/react")
+    assert [m["To"] for m in mail.outbox] == [daan.email]
+    assert "wil je HG-dienst" in mail.outbox[0]["Subject"]
+    assert f"/mijn#l{listing.id}" in mail.outbox[0].get_content()
+    mail.outbox.clear()
+    d_client.post(f"/reactions/{reactions(listing.id)[0].id}/accept")
+    assert mail.outbox == []  # "you were chosen" is bell-only
+    assert any("heeft bevestigd" in t for t in notifications_for(noor))

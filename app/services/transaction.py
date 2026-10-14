@@ -64,15 +64,18 @@ def queued_mails(db: Session) -> list[QueuedMail]:
     return db.info.pop("mails", [])
 
 
-def notify(db: Session, user: User, text: str, link: str = "/mijn") -> None:
-    """In-app notification (the bell), plus an email if the user verified an address and
-    mail is configured on this server."""
+def notify(db: Session, user: User, text: str, link: str = "/mijn", *, mail: bool = False) -> None:
+    """In-app notification (the bell). With `mail=True` also an email, if the user verified
+    an address, has mails on, and mail is configured on this server. Only "someone reacted to
+    your shift" mails; everything else is bell-only, so mails stay rare and worth reading."""
     db.add(Notification(user_id=user.id, text=text, link=link))
     settings = get_settings()
-    if user.email and user.email_notifications and user.is_active and settings.mail_enabled:
-        base = settings.base_url
-        body = (
-            f"Hoi {user.first_name},\n\n{text}\n\nBekijk het op {base}{link}\n\n"
-            f"Geen mails meer van ons? Zet ze uit op {base}/account"
-        )
-        queue_mail(db, QueuedMail(user.email, text, body))
+    if not (mail and user.email and user.email_notifications and settings.mail_enabled):
+        return
+    base = settings.base_url
+    body = (
+        f"Hoi {user.first_name},\n\n{text}\n\n"
+        f"Bekijk de reactie en bevestig of wijs af:\n{base}{link}\n\n"
+        f"—\n{settings.app_name}. Deze mails uitzetten kan op {base}/account"
+    )
+    queue_mail(db, QueuedMail(user.email, text, body))

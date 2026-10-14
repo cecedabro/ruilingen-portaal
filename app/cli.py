@@ -3,6 +3,7 @@
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli admin-link "Your Name"
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli join-link
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli set-list halls "A;B;Overig"
+    kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli demo-seed     (or demo-remove)
 
 `admin-link` creates the user if needed, makes them admin and prints a one-time login link
 (valid 60 minutes). Open it on your phone; you stay logged in there.
@@ -15,12 +16,18 @@ from sqlalchemy import func, select
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import User
-from app.services import appdata, invites, logins, members
+from app.services import appdata, demo, invites, logins, members
 
 
 def main(argv: list[str]) -> int:
     settings = get_settings()
     with SessionLocal() as db:
+        if argv[:1] == ["demo-seed"]:
+            print(f"{demo.seed(db, settings.today())} demo-collega's aangemaakt")
+            return 0
+        if argv[:1] == ["demo-remove"]:
+            print(f"{demo.remove(db)} demo-collega's verwijderd")
+            return 0
         if argv[:1] == ["join-link"]:
             print(invites.url(settings, invites.main_link(db)))
             return 0

@@ -17,14 +17,14 @@
     <input id="name" name="name" required maxlength="60" value="{{ user.name }}" autocomplete="name"></div>
   {% if user.email %}
   <label class="check"><input type="checkbox" name="email_notifications" value="true" {% if user.email_notifications %}checked{% endif %}>
-    <span>Meldingen ook per mail</span></label>
+    <span>Mail me als iemand op mijn dienst reageert</span></label>
   {% endif %}
   <div><button class="btn primary" type="submit">Opslaan</button></div>
 </form>
 
 {% if settings.mail_enabled %}
 <form class="form" method="post" action="/account/email">
-  <div class="field"><label for="email">E-mail <span class="opt">optioneel, alleen voor meldingen per mail</span></label>
+  <div class="field"><label for="email">E-mail <span class="opt">optioneel: een mail als iemand op je dienst reageert</span></label>
     <div class="copyrow">
       <input id="email" name="email" type="email" value="{{ user.email or '' }}" autocomplete="email">
       <button class="btn" type="submit">{{ "Wijzig" if user.email else "Koppel" }}</button>
