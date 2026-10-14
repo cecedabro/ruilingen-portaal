@@ -1,185 +1,46 @@
-# Ruilingen Portaal
+# Ruilingen
 
-A website where colleagues at a concert hall swap shifts with each other, replacing a chaotic
-WhatsApp group chat. Planned domain: **ruilingen.app**.
+A small web app where front-of-house colleagues swap shifts, instead of a busy WhatsApp group.
+Live at **https://ruilingen.app** (a pilot on a home server: if it's down, use the group chat).
 
-> This README is the full project brief, written to be handed to a developer (or an AI coding
-> session) that starts from zero. Everything decided so far, and everything still open, is here.
+- **Aangeboden / Gezocht:** shifts given away and shifts people look for, with who posted
+  first (#1, #2, …), filters by type, day, dagdeel, zaal and availability.
+- **Reacting and confirming:** anyone can react; the poster sees reactions in order and picks
+  one. When it's confirmed, a ready-made email to planning is one tap away (sent from the
+  colleague's own mail app, from an admin-editable template).
+- **Joining:** only through an invite link (the main one sits in the group chat
+  description). Just a name; no password, no email.
+- **Beheer:** invite links (with expiry and use limits), members, zaal/werkplek lists, the
+  planning mail template, removing listings.
 
----
+Dutch UI; code and docs in English. Made-up example data only in this public repository.
 
-## 1. The problem
-The front-of-house staff (bar, cloakroom, champagne bar, programme sales, receptions) trade,
-give away and take over shifts all the time. Today this happens in a WhatsApp group:
-- Messages get lost in the chat; it's unclear what is still available
-- "Who was first?" is argued over; people experiment with polls to decide
-- There's no overview of what's offered and what's wanted
+## Documentation
 
-## 2. What the portal is (and isn't)
-- **It is** a peer tool among colleagues: a clear, shared board of offered and wanted shifts.
-- **It isn't** the official planning system. Planning/administration keep working exactly as now:
-  they receive **one email** saying who takes over whose shift, and enter it in their own system.
-  The portal only makes that email consistent and saves the chaos before it.
-- So the portal does **not** enforce labour rules, qualifications or approval. Planning still does.
-
-## 3. Core flow
-1. **Aangeboden** (offered): a colleague posts a shift they want to give away (date, start, end,
-   shift type, optional note). Listings are shown **oldest first**, with the exact **time posted**
-   and a rank (#1, #2, ...).
-2. **Gezocht** (wanted): a colleague posts that they're looking for a shift on a date, with the
-   shift types they'd accept.
-3. Anyone can react to **any** listing. Order is visible, but you're **not** limited to the first.
-   - On an offered shift: "Ik neem deze dienst" (I'll take it).
-   - On a wanted request: "Ik heb een dienst voor je", entering the shift you offer (time + type).
-4. The owner of the listing sees all reactions, **in order of who was first**, and **chooses** one
-   ("Bevestigen" / confirm). Reacting + confirming = **double confirmation**.
-5. The listing closes; other reactions expire and those people are notified.
-6. The portal shows a **ready-made email to planning**: To = planning, Cc = both colleagues,
-   subject + body from a template. **The colleague sends it from their own mail app**
-   (mailto/copy). The portal does not send it: planning then gets it from a colleague, exactly as
-   today, and there are no spam/deliverability or "who is this app" issues.
-7. Notifications (someone reacted, you were chosen, your reaction expired) go by email (and maybe
-   push later).
-
-Edge cases to handle: two people react at the same moment (first-come must be correct, no double
-accept); withdrawing a reaction; removing a listing; listings in the past disappear.
-
-## 4. Shift types
-Letters, in the **order they happen within the shift**:
-
-| Code | Meaning |
+| | |
 |---|---|
-| `H` | Horeca: behind a bar |
-| `G` | Garderobe: cloakroom |
-| `C` | Champagne: a special kind of bar |
-| `P` | Programma's: selling programmes |
-| `R` | Receptie: formal reception, varied tasks |
-| `I` | Inwerkdienst: induction shift (exact format unknown, ask) |
+| [docs/architecture.md](docs/architecture.md) | how it works: code map, request flow, login and security, concurrency, migrations |
+| [docs/database.md](docs/database.md) | every table and column, status flows, retention |
+| [deploy/README.md](deploy/README.md) | how it runs on the homelab cluster and how releases deploy |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | local setup, conventions, how changes get merged |
+| [CHANGELOG.md](CHANGELOG.md) | releases, with schema/secret/manifest notes |
+| [docs/open-questions.md](docs/open-questions.md) | product decisions and their defaults |
+| [docs/brief.md](docs/brief.md) | the original project brief |
 
-Known combinations: `H, HG, GH, G, CGH, CHG, CH, R, PH, PHG, PGH` (+ induction).
-`HG` = bar first, cloakroom after the break. `CGH` = champagne, then cloakroom, then bar.
+## Quick start
 
-## 5. Email template (to planning)
-```
-Aan:       <planning address>
-Cc:        <giver>, <taker>
-Onderwerp: Dienstruil <date> · <type> <start>–<end>
-
-Beste planning,
-
-<taker> neemt de volgende dienst over van <giver>:
-
-  Datum:  <weekday day month> (<YYYY-MM-DD>)
-  Tijd:   <start>–<end>
-  Soort:  <type> (<expanded meaning>)
-
-Wij hebben dit allebei bevestigd.
-
-Met vriendelijke groet,
-<giver> en <taker>
-```
-The real planning address is known to the owner but deliberately **not** in this public repo;
-make it a config value.
-
-## 6. Prototype
-[`demo/prototype.html`](demo/prototype.html): a working clickable demo (single HTML file, vanilla
-JS, open in a browser). It has 8 made-up colleagues, a "Ik ben" (I am) switcher to play both
-sides, the two boards, reactions with order, confirm, a notification panel, and the generated
-planning email. State lives in `localStorage` only. Treat it as the **UX reference** for the real
-build: the flow, wording and shift-code chips are what the owner showed/wants.
-
-## 7. Recommended stack
-Chosen for being simple, debuggable by the owner, and overlapping with their upcoming job
-project (a FastAPI platform):
-- **FastAPI** (Python) + **Jinja2** server-rendered templates + **HTMX** for interactivity
-  (no separate JS build)
-- **SQLite** (one file; plenty for a group of colleagues). SQLAlchemy/SQLModel + Alembic migrations
-- Login via a **group join link + name** (email optional), sessions in a signed cookie
-- Optional outgoing email (notifications only) via a transactional mail service free tier
-  (e.g. Brevo or Resend). **Not** from the homelab itself (it would land in spam).
-- Dutch UI; code and repo in English
-
-Alternatives considered: SvelteKit + SQLite (nice DX, but a new framework), Next.js + Postgres
-(too heavy for this).
-
-## 8. Hosting and deployment
-Live at **https://ruilingen.app** on the owner's home Kubernetes cluster (k3s): Flux GitOps,
-Cloudflare Tunnel, Longhorn volume (nightly backups) for the SQLite file, OpenBao + External
-Secrets for secrets.
-
-**Deploys are release-only:** `git tag vX.Y.Z && git push origin vX.Y.Z` → CI pushes image
-`X.Y.Z` → Flux image automation bumps the homelab repo and deploys it. Pushes to `main` build
-images but don't deploy. The runtime contract, secrets and release checklist are in
-[`deploy/README.md`](deploy/README.md); release notes in [`CHANGELOG.md`](CHANGELOG.md).
-
-Be honest with users that this is a **pilot on a home server**: if it's down, they fall back to
-WhatsApp.
-
-## 9. Privacy and ground rules
-- Personal data of colleagues: name, email, listed shifts. Store **nothing more**, delete old
-  data (e.g. swaps older than X weeks), let people delete their account.
-- This repo must **never** contain real names, email addresses, schedules or the employer's
-  name/branding. Use made-up example data only (as in the prototype).
-- It's an informal tool among colleagues; tell the people involved what's stored and why.
-- Access must be restricted (the site is public on the internet): invite list or allowed email
-  addresses, not open sign-up.
-
-## 10. Status and next steps
-- [x] Clickable prototype (demo for the department committee)
-- [x] FastAPI app (boards, reactions, confirm, planning email, join-link login)
-- [x] Container image + CI → ghcr.io
-- [x] Live at ruilingen.app (homelab, Flux, Cloudflare tunnel), 0.2.0
-- [ ] Owner answers the open questions (defaults are in place, see below)
-- [ ] Pilot with a few colleagues
-- [ ] Optional: mail provider for email notifications
-
-## 11. Open questions
-See [`docs/open-questions.md`](docs/open-questions.md).
-
-## 12. Development
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
-cp .env.example .env                    # DEV_MODE=true: login link shown on screen, mails in the log
-.venv/bin/alembic upgrade head          # creates ruilingen.db
-.venv/bin/python -m scripts.seed_demo   # optional: the prototype's made-up colleagues
-.venv/bin/uvicorn app.main:app --reload # http://localhost:8000
-.venv/bin/pytest                        # tests
-.venv/bin/ruff check . && .venv/bin/ruff format .
+cp .env.example .env                       # DEV_MODE: mails go to the log
+.venv/bin/alembic upgrade head             # creates ruilingen.db
+.venv/bin/python -m scripts.seed_demo      # optional: made-up colleagues and shifts
+.venv/bin/uvicorn app.main:app --reload    # http://localhost:8000
+.venv/bin/python -m app.cli join-link      # open this link to join locally
+.venv/bin/pytest -q                        # tests
 ```
-Join via `.venv/bin/python -m app.cli join-link`, or log in with a seeded address such as
-`daan.bakker@voorbeeld.nl` (admin in the seed; in dev mode the link shows on screen).
 
-Changing the models: edit `app/models.py`, then
-`.venv/bin/alembic revision --autogenerate -m "what changed"`, read the generated file, and commit it.
+## Stack
 
-### Layout
-| Path | What |
-|---|---|
-| `app/main.py` | routes (thin: parse the form, call a service, redirect) |
-| `app/services.py` | all swap rules: posting, reacting, confirming, removing, cleanup |
-| `app/auth.py` | join link, one-time links, optional email, session cookie, CSRF check |
-| `app/cli.py` | `admin-link` / `join-link` for the server shell |
-| `app/models.py` | database tables |
-| `app/shifts.py` | shift codes, Dutch date formatting, the planning email template |
-| `app/mail.py` | outgoing mail (SMTP or console) |
-| `app/templates/`, `app/static/` | Jinja2 pages, CSS (from the prototype), HTMX, fonts |
-| `migrations/` | Alembic migrations |
-| `deploy/` | homelab manifests + deployment runbook |
-
-### Design notes
-- **First come, enforced by the database.** Reactions are ordered by `(created_at, id)`. One
-  open reaction per person per listing is a partial unique index. Confirming flips the listing
-  with `UPDATE ... WHERE status='open'`, so two simultaneous confirms can't both win
-  (there is a test that races two threads).
-- **Login with the least friction.** A join link (`/join/<code>`) is shared in the group chat:
-  open it, type your name, done. The browser stays logged in (rolling one-year cookie). No email
-  needed; trust-based like the group chat, while the code keeps strangers out (admins can rotate
-  it), plus extra links with an expiry and/or use limit, and single-use 24-hour admin links.
-  Email is optional, verified, and only used for notifications (no email login). Other devices are
-  linked with one-time links (from Account, or an admin). One-time links are stored hashed and
-  need a click on a page first, so mail scanners can't burn them.
-- **Lean.** Server-rendered HTML, plain form POST → redirect, no JS framework, system fonts.
-  A page is a few KB (gzip); `app.js` only adds copy buttons and confirm dialogs.
-- **Privacy.** Nothing from third parties (no fonts, CDN or analytics), strict CSP.
-  Old data is deleted automatically (`RETENTION_DAYS`, default 6 weeks after the shift date);
-  users can delete their account themselves.
+FastAPI + Jinja2 (server-rendered HTML), SQLAlchemy 2 + Alembic on SQLite, a ~150-line
+`app.js` for instant navigation, system fonts. One container, deployed by Flux to a k3s
+homelab behind a Cloudflare tunnel. Releases are git tags `vX.Y.Z`.

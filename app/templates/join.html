@@ -2,7 +2,7 @@
 {% block title %}Meedoen · {{ settings.app_name }}{% endblock %}
 {% block content %}
 <div class="form narrow">
-{% if valid %}
+{% if link %}
   <form method="post" class="field">
     {% if link.role == "admin" %}<p class="flash ok">Je wordt beheerder van {{ settings.app_name }}.</p>{% endif %}
     <label for="name">Hoe heet je?</label>

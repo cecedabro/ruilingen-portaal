@@ -22,9 +22,9 @@
         </button>
       </form>
       {% if user %}
-      <div class="who">
+      <div class="who-am-i">
         <a class="name" href="/account">{{ user.name }}</a>
-        <a class="bell" href="/meldingen" aria-label="Meldingen{% if unread %}, {{ unread }} nieuw{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg>{% if unread %}<span class="dot">{{ unread }}</span>{% endif %}</a>
+        <a class="bell" href="/meldingen" aria-label="Meldingen{% if nav.unread %}, {{ nav.unread }} nieuw{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg>{% if nav.unread %}<span class="dot">{{ nav.unread }}</span>{% endif %}</a>
       </div>
       {% endif %}
     </div>
@@ -34,13 +34,13 @@
 <nav class="tabbar" aria-label="Onderdelen">
   <a href="/aangeboden" {% if tab == "offer" %}aria-current="page"{% endif %}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>
-    <span>Aangeboden</span>{% if n_offer %}<b>{{ n_offer }}</b>{% endif %}</a>
+    <span>Aangeboden</span>{% if nav.offers %}<b>{{ nav.offers }}</b>{% endif %}</a>
   <a href="/gezocht" {% if tab == "wanted" %}aria-current="page"{% endif %}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
-    <span>Gezocht</span>{% if n_wanted %}<b>{{ n_wanted }}</b>{% endif %}</a>
+    <span>Gezocht</span>{% if nav.wanted %}<b>{{ nav.wanted }}</b>{% endif %}</a>
   <a href="/mijn" {% if tab == "mijn" %}aria-current="page"{% endif %}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg>
-    <span>Mijn</span>{% if n_todo %}<b class="todo">{{ n_todo }}</b>{% endif %}</a>
+    <span>Mijn</span>{% if nav.todo %}<b class="todo">{{ nav.todo }}</b>{% endif %}</a>
   <a href="/plaatsen" {% if tab == "plaatsen" %}aria-current="page"{% endif %}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     <span>Plaatsen</span></a>

@@ -1,7 +1,17 @@
 # Ruilingen Portaal
 
 Shift-swap board for front-of-house colleagues. FastAPI + Jinja2, SQLite, Dutch UI, code in English.
-Brief: README.md. Deployment: deploy/README.md. Release notes: CHANGELOG.md.
+How it works: docs/architecture.md (code map, request flow, security, concurrency) and
+docs/database.md (tables). Deployment: deploy/README.md. Release notes: CHANGELOG.md.
+Conventions and merge rules: CONTRIBUTING.md.
+
+## Where things go
+- Rules → `app/services/<area>.py` (no HTTP; raise `UserError` with a Dutch message).
+- Pages → `app/templates/` + a thin route in `app/web/routes/<area>.py` (POST → redirect).
+- Writes that can race go through `services.transaction.run_write`.
+- Admin-editable text/lists → `app_settings` via `services/appdata.py`, never hardcoded
+  (employer-identifying values must stay out of this public repo).
+- Tests → `tests/test_<area>.py`, helpers in `tests/helpers.py`.
 
 ## Commands
 ```bash
@@ -24,7 +34,8 @@ Brief: README.md. Deployment: deploy/README.md. Release notes: CHANGELOG.md.
   - A manifest change needs updating `deploy/homelab/` and telling the owner to change homelab.
 
 ## Must stay true
-- Exactly 1 replica + Recreate (SQLite on a RWO volume); one uvicorn worker.
+- Exactly 1 replica + Recreate (SQLite on a RWO volume); one uvicorn worker (the cleanup
+  loop runs in-process).
 - Port 8000. `GET /healthz` returns 200 without auth (probes + status dot).
 - Runs as UID 10001 with a read-only root filesystem: only `/data` and `/tmp` are writable.
   Never write files elsewhere at runtime.
@@ -40,4 +51,6 @@ Brief: README.md. Deployment: deploy/README.md. Release notes: CHANGELOG.md.
 
 ## UI
 Lean: server-rendered HTML, plain form POST → redirect, no JS framework, system fonts, no
-explanations of shift codes (everyone knows them). `app.js` only does copy buttons and confirms.
+explanations of shift codes (everyone knows them). `app.js` is progressive enhancement only
+(tab prefetch + in-place swaps, filters, copy, confirms, theme); every page works without it.
+Design tokens are CSS variables at the top of style.css; dark mode redefines them.

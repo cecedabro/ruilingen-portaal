@@ -96,7 +96,24 @@
   </ul>
 </section>
 
-<form class="form" method="post" action="/beheer/lijsten">
+<form class="form" method="post" action="/beheer/mail" id="mail">
+  <h2>Mail naar planning</h2>
+  <p class="meta">Deze tekst staat klaar als een ruil rond is; een van de twee verstuurt hem vanuit de eigen mail.</p>
+  <div class="field"><label for="ms">Onderwerp</label>
+    <input id="ms" name="subject" maxlength="200" value="{{ mail_subject }}"></div>
+  <div class="field"><label for="mb">Tekst</label>
+    <textarea id="mb" name="body" rows="12" class="mono-area">{{ mail_body }}</textarea></div>
+  <details class="placeholders">
+    <summary>Invulvelden</summary>
+    <dl>{% for key, what in placeholders.items() %}<div><dt><code>{{ "{" ~ key ~ "}" }}</code></dt><dd>{{ what }}</dd></div>{% endfor %}</dl>
+  </details>
+  <div class="actions">
+    <button class="btn primary" type="submit">Opslaan</button>
+    <button class="linkish" type="submit" name="reset" value="1" data-confirm-click="Terug naar de standaardmail?">Standaard terugzetten</button>
+  </div>
+</form>
+
+<form class="form" method="post" action="/beheer/lijsten" id="lijsten">
   <h2>Keuzelijsten</h2>
   <div class="grid2">
     <div class="field"><label for="lh">Zalen <span class="opt">één per regel</span></label>

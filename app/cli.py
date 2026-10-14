@@ -12,23 +12,23 @@ import sys
 
 from sqlalchemy import func, select
 
-from app import auth, services
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import User
+from app.services import appdata, invites, logins, members
 
 
 def main(argv: list[str]) -> int:
     settings = get_settings()
     with SessionLocal() as db:
         if argv[:1] == ["join-link"]:
-            print(auth.link_url(settings, auth.main_link(db)))
+            print(invites.url(settings, invites.main_link(db)))
             return 0
-        if argv[:1] == ["set-list"] and len(argv) == 3 and argv[1] in services.DEFAULT_LISTS:
-            print("\n".join(services.set_list(db, argv[1], argv[2].split(";"))))
+        if argv[:1] == ["set-list"] and len(argv) == 3 and argv[1] in appdata.DEFAULT_LISTS:
+            print("\n".join(appdata.set_list(db, argv[1], argv[2].split(";"))))
             return 0
         if argv[:1] == ["admin-link"] and len(argv) == 2:
-            name = auth.clean_name(argv[1])
+            name = members.clean_name(argv[1])
             user = db.scalar(select(User).where(func.lower(User.name) == name.lower()))
             if user is None:
                 user = User(name=name)
@@ -36,7 +36,7 @@ def main(argv: list[str]) -> int:
             user.is_admin = True
             user.is_active = True
             db.commit()
-            print(auth.make_link(db, settings, user, minutes=60))
+            print(logins.make_link(db, settings, user, minutes=60))
             return 0
     print(__doc__)
     return 2

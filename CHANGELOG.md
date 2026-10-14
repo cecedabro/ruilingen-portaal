@@ -14,6 +14,23 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.7.0 (2026-10-14)
+- Date shown inside every shift card (calendar tile) with the time next to it, plus
+  "vandaag"/"morgen"; no more separate day headings. Overall styling pass: white cards on a
+  soft background, aligned zaal/werkplek/opmerking, consistent spacing, quieter admin links.
+- The planning email template is editable by admins on Beheer (placeholders like `{gever}`,
+  `{nemer}`, `{details}`; "Standaard terugzetten" restores the default). "Mail naar planning"
+  opens it in your own mail app.
+- Code restructured: `app/services/` (rules per area) and `app/web/` (session, rendering,
+  routes per area); tests split per area. New docs: docs/architecture.md, docs/database.md,
+  CONTRIBUTING.md; the original brief moved to docs/brief.md.
+- Repository: CODEOWNERS; `main` and release tags protected (only the owner merges and tags).
+
+- Schema change: none (the template is stored in the existing `app_settings` table).
+  Rollback = pin the previous image tag.
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.6.0 (2026-10-14)
 - Invite links: the main group-chat link (the existing one keeps working) plus extra links
   admins create with an optional expiry and use limit, revocable; admin invite links are always

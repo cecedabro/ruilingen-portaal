@@ -1,4 +1,5 @@
-"""Outgoing mail: login links and notifications. The mail to planning is never sent from here."""
+"""Outgoing mail (optional): notifications and address verification. Mail to planning is never
+sent from here: colleagues send it themselves (see services/planning.py)."""
 
 import logging
 import smtplib

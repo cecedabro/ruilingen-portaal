@@ -3,61 +3,67 @@
 {% block title %}Mijn · {{ settings.app_name }}{% endblock %}
 {% block content %}
 {% if not items %}
-<div class="empty list">Nog niks geplaatst of gereageerd.</div>
+<div class="empty">Nog niks geplaatst of gereageerd.</div>
 {% else %}
 <div class="list">
 {% for l, deal, mail in items %}
   {% if deal %}
-  <article class="deal" id="l{{ l.id }}">
-    <div class="head">
-      <span class="when">{{ fmt_date(deal.shift.day) }}</span>
-      <span class="labels"><span class="pill ok">Rond</span> {{ m.code(deal.shift.code) }}</span>
+  {#- A completed swap: who takes over from whom, and the email to planning. -#}
+  <article class="shift deal" id="l{{ l.id }}">
+    {{ m.date_tile(deal.shift.day) }}
+    <div class="body">
+      <div class="shead">
+        {{ m.when(deal.shift) }}
+        <span class="labels"><span class="status ok">Rond</span>{{ m.code(deal.shift.code) }}</span>
+      </div>
+      <div class="who"><b>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}</b></div>
+      {{ m.facts(deal.shift) }}
+      {% if l.mail_sent_at %}
+      <p class="meta">Planning gemaild door {{ l.mail_sent_by.name if l.mail_sent_by else "een van jullie" }}, {{ stamp(l.mail_sent_at) }}.</p>
+      {% else %}
+      <div class="act">
+        <a class="btn primary" href="{{ mail.mailto }}">Mail naar planning</a>
+        <button class="btn secondary" type="button" data-copy="mailtext{{ l.id }}" hidden>Kopieer</button>
+        <form class="inline" method="post" action="/listings/{{ l.id }}/mail-sent">
+          <button class="linkish" type="submit">Verstuurd ✓</button>
+        </form>
+      </div>
+      <details class="mailtext">
+        <summary>Bekijk de mail</summary>
+        <pre class="mail" id="mailtext{{ l.id }}">{{ mail.as_text }}</pre>
+      </details>
+      <p class="meta">Eén van jullie verstuurt hem, vanuit je eigen mail. Tik daarna op "Verstuurd".</p>
+      {% endif %}
     </div>
-    {% if deal.shift.when %}<div class="time">{{ deal.shift.when }}</div>{% endif %}
-    {{ m.facts(deal.shift) }}
-    <div>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}.</div>
-    {% if l.mail_sent_at %}
-    <div class="meta">Planning gemaild door {{ l.mail_sent_by.name if l.mail_sent_by else "een van jullie" }}, {{ stamp(l.mail_sent_at) }}</div>
-    {% else %}
-    <div class="actions">
-      <a class="btn primary" href="{{ mail.mailto }}">Mail planning</a>
-      <button class="btn" type="button" data-copy="mailtext{{ l.id }}" hidden>Kopieer</button>
-      <form class="inline" method="post" action="/listings/{{ l.id }}/mail-sent">
-        <button class="btn ok" type="submit">Verstuurd ✓</button>
-      </form>
-    </div>
-    <details class="mailtext">
-      <summary>Bekijk mail</summary>
-      <pre class="mail" id="mailtext{{ l.id }}">{{ mail.as_text }}</pre>
-    </details>
-    {% endif %}
   </article>
   {% elif l.user_id == user.id %}
+    {#- Your own open listing: the reactions in order, to confirm one. -#}
     {% set pending = l.pending_reactions %}
     {% set extra %}
     <div class="reactions">
       {% for r in pending %}
       <div class="react">
-        <span class="rank">#{{ loop.index }}</span>
-        <span class="who-n">{{ r.user.name }}</span>
-        {% if r.offer_type %}<span>{{ m.code(r.offer_type) }} <span class="meta">{{ r.offer_info.when }}{% if r.offer_info.where %} · {{ r.offer_info.where }}{% endif %}</span></span>{% endif %}
-        <span class="meta mono">{{ stamp(r.created_at) }}</span>
+        <div class="react-who">
+          <span class="rank">#{{ loop.index }}</span><b>{{ r.user.name }}</b>
+          <span class="meta mono">{{ stamp(r.created_at) }}</span>
+        </div>
+        {% if r.offer_type %}<div class="meta">biedt {{ m.code(r.offer_type) }} {{ r.offer_info.when }}{% if r.offer_info.where %} · {{ r.offer_info.where }}{% endif %}</div>{% endif %}
         <div class="actions">
           <form class="inline" method="post" action="/reactions/{{ r.id }}/accept"><button class="btn ok" type="submit">Bevestigen</button></form>
           <form class="inline" method="post" action="/reactions/{{ r.id }}/decline"><button class="btn" type="submit">Nee</button></form>
         </div>
       </div>
       {% else %}
-      <div class="meta">Nog geen reacties.</div>
+      <p class="meta">Nog geen reacties.</p>
       {% endfor %}
-      <form method="post" action="/listings/{{ l.id }}/remove" data-confirm="Weghalen?">
+      <form method="post" action="/listings/{{ l.id }}/remove" data-confirm="Deze dienst weghalen?">
         <button class="linkish" type="submit">Weghalen</button>
       </form>
     </div>
     {% endset %}
-    {{ m.shift(l, user, next="/mijn", extra=extra, show_date=true) }}
+    {{ m.shift(l, user, next="/mijn", extra=extra) }}
   {% else %}
-    {{ m.shift(l, user, next="/mijn", show_date=true) }}
+    {{ m.shift(l, user, next="/mijn") }}
   {% endif %}
 {% endfor %}
 </div>

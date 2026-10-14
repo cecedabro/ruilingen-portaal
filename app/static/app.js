@@ -48,9 +48,14 @@ function init(root) {
   });
 }
 
+// "Are you sure?" for destructive forms (data-confirm) and single buttons (data-confirm-click).
 document.addEventListener("submit", function (e) {
   var msg = e.target.dataset.confirm;
   if (msg && !window.confirm(msg)) e.preventDefault();
+});
+document.addEventListener("click", function (e) {
+  var btn = e.target.closest("[data-confirm-click]");
+  if (btn && !window.confirm(btn.dataset.confirmClick)) e.preventDefault();
 });
 
 // ------------------------------------------------------------ instant navigation

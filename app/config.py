@@ -4,6 +4,7 @@ Secrets (SESSION_SECRET, SMTP_PASSWORD) and anything that identifies the real em
 (PLANNING_EMAIL) are never committed: in the cluster they come from OpenBao.
 """
 
+from datetime import date, datetime
 from functools import lru_cache
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
@@ -65,6 +66,10 @@ class Settings(BaseSettings):
     @property
     def tz(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
+
+    def today(self) -> date:
+        """Today in the venue's timezone (the server may run in UTC)."""
+        return datetime.now(self.tz).date()
 
     @property
     def secure_cookies(self) -> bool:

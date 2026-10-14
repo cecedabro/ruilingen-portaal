@@ -43,11 +43,11 @@ def make_user(name: str, **kw) -> User:
 
 def login(client: TestClient, user: User) -> TestClient:
     """Log a browser in as `user` with a one-time link (the way an admin would)."""
-    from app import auth
     from app.config import get_settings
+    from app.services import logins
 
     with SessionLocal() as s:
-        link = auth.make_link(s, get_settings(), s.get(User, user.id))
+        link = logins.make_link(s, get_settings(), s.get(User, user.id))
     path = link.removeprefix("http://testserver")
     r = client.post(path, data={"next": ""}, follow_redirects=False)
     assert r.status_code == 303
@@ -56,10 +56,10 @@ def login(client: TestClient, user: User) -> TestClient:
 
 
 def join(client: TestClient, name: str) -> TestClient:
-    from app import auth
+    from app.services import invites
 
     with SessionLocal() as s:
-        code = auth.main_link(s).code
+        code = invites.main_link(s).code
     r = client.post(f"/join/{code}", data={"name": name}, follow_redirects=False)
     assert r.status_code == 303, r.text
     return client

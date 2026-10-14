@@ -1,3 +1,10 @@
+"""Database engine and sessions.
+
+One SQLite file (on a persistent volume in production). WAL mode lets readers carry on while
+one request writes; busy_timeout makes a second writer wait instead of failing at once.
+Each request gets its own Session via the `get_db` dependency.
+"""
+
 from collections.abc import Iterator
 
 from sqlalchemy import create_engine, event

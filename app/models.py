@@ -1,3 +1,9 @@
+"""Database tables (SQLAlchemy 2.0 ORM). See docs/database.md for the full picture.
+
+Conventions: times are stored in UTC (UTCDateTime) and shown in Europe/Amsterdam; statuses
+are short strings (StrEnum); deleting a user cascades to everything they own.
+"""
+
 from datetime import UTC, date, datetime
 from enum import StrEnum
 
@@ -60,15 +66,16 @@ class ReactionStatus(StrEnum):
 
 
 class User(Base):
+    """A colleague. Joins with just a name via an invite link."""
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Optional: people join with just a name. With an email they get mail notifications and
-    # can log in with a mailed link. Only set after the address is verified.
+    # Optional, only for notification mails; set once the address is verified.
     email: Mapped[str | None] = mapped_column(String(254), unique=True)
-    name: Mapped[str] = mapped_column(String(80))
+    name: Mapped[str] = mapped_column(String(80))  # unique (case-insensitive), checked in code
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # inactive = can't log in
     email_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
     # Bumped on "log out everywhere": every cookie with an older epoch stops working.
     session_epoch: Mapped[int] = mapped_column(Integer, default=0)
@@ -81,6 +88,8 @@ class User(Base):
 
 
 class LoginToken(Base):
+    """A one-time link: log in on another device, or (with `email`) verify an address."""
+
     __tablename__ = "login_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -97,21 +106,23 @@ class LoginToken(Base):
 
 
 class Listing(Base):
+    """A shift on one of the boards: given away (offer) or looked for (wanted)."""
+
     __tablename__ = "listings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[Kind] = mapped_column(String(10))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
-    # Offers have one shift type; wanted requests a list of acceptable types. Everything about
-    # *when/where* beyond the date is optional: "HG, thursday evening" is a complete listing.
+    # Offer: one shift type, begin/end time ("HH:MM", required), optional zaal/werkplek.
+    # Wanted: comma-separated acceptable types and an optional dagdeel instead of a time.
     start: Mapped[str | None] = mapped_column(String(5))
-    end: Mapped[str | None] = mapped_column(String(5))
-    daypart: Mapped[str | None] = mapped_column(String(10))  # only used when there's no time
-    hall: Mapped[str | None] = mapped_column(String(60))  # zaal
-    workplace: Mapped[str | None] = mapped_column(String(60))  # werkplek / bar
+    end: Mapped[str | None] = mapped_column(String(5))  # may be earlier than start: past midnight
+    daypart: Mapped[str | None] = mapped_column(String(10))  # ochtend / middag / avond
+    hall: Mapped[str | None] = mapped_column(String(60))  # zaal, from the admin list
+    workplace: Mapped[str | None] = mapped_column(String(60))  # werkplek, from the admin list
     shift_type: Mapped[str | None] = mapped_column(String(8))
-    wanted_types: Mapped[str | None] = mapped_column(String(80))
+    wanted_types: Mapped[str | None] = mapped_column(String(80))  # "H,HG,G"
     note: Mapped[str] = mapped_column(Text, default="")  # opmerking
     status: Mapped[ListingStatus] = mapped_column(String(10), default=ListingStatus.OPEN)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
@@ -154,6 +165,8 @@ class Listing(Base):
 
 
 class Reaction(Base):
+    """Someone responding to a listing; the owner picks one (see services/listings.py)."""
+
     __tablename__ = "reactions"
     __table_args__ = (
         # One open reaction per person per listing. Enforced by the database, so a double
@@ -176,7 +189,7 @@ class Reaction(Base):
     # Only for reactions on a wanted request: the shift being offered.
     offer_start: Mapped[str | None] = mapped_column(String(5))
     offer_end: Mapped[str | None] = mapped_column(String(5))
-    offer_daypart: Mapped[str | None] = mapped_column(String(10))
+    offer_daypart: Mapped[str | None] = mapped_column(String(10))  # legacy (0.3–0.4), unused now
     offer_hall: Mapped[str | None] = mapped_column(String(60))
     offer_workplace: Mapped[str | None] = mapped_column(String(60))
     offer_type: Mapped[str | None] = mapped_column(String(8))
@@ -201,6 +214,8 @@ class Reaction(Base):
 
 
 class Notification(Base):
+    """An entry behind the bell. Deleted after RETENTION_DAYS."""
+
     __tablename__ = "notifications"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -212,7 +227,7 @@ class Notification(Base):
 
 
 class AppSetting(Base):
-    """Small key/value store for settings admins change at runtime (the join code)."""
+    """Settings admins change at runtime: zaal/werkplek lists, the planning mail template."""
 
     __tablename__ = "app_settings"
 

@@ -1,9 +1,8 @@
-"""Shift types, Dutch date formatting and the email to planning."""
+"""Shift types and Dutch date/time formatting. Pure functions: no database, no web."""
 
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from urllib.parse import quote
 
 # Letters in the order they happen within the shift: HG = bar first, cloakroom after the break.
 PARTS = {
@@ -115,59 +114,3 @@ class ShiftInfo:
     def where(self) -> str:
         """'Grote Zaal · Foyer 1', one of them, or ''."""
         return " · ".join(p for p in (self.hall, self.workplace) if p)
-
-
-@dataclass
-class PlanningMail:
-    to: str
-    cc: list[str]
-    subject: str
-    body: str
-
-    @property
-    def mailto(self) -> str:
-        cc = f"cc={quote(','.join(self.cc))}&" if self.cc else ""
-        return f"mailto:{quote(self.to)}?{cc}subject={quote(self.subject)}&body={quote(self.body)}"
-
-    @property
-    def as_text(self) -> str:
-        cc = f"Cc: {', '.join(self.cc)}\n" if self.cc else ""
-        return f"Aan: {self.to}\n{cc}Onderwerp: {self.subject}\n\n{self.body}"
-
-
-def planning_mail(
-    *,
-    planning: str,
-    giver_name: str,
-    giver_email: str | None,
-    taker_name: str,
-    taker_email: str | None,
-    shift: ShiftInfo,
-) -> PlanningMail:
-    lines = [
-        f"  Datum:    {fmt_date_long(shift.day)} ({shift.day.isoformat()})",
-        f"  Soort:    {shift.code}",
-    ]
-    if shift.when:
-        lines.append(f"  Tijd:     {shift.when}")
-    if shift.hall:
-        lines.append(f"  Zaal:     {shift.hall}")
-    if shift.workplace:
-        lines.append(f"  Werkplek: {shift.workplace}")
-    body = (
-        "Beste planning,\n\n"
-        f"{taker_name} neemt de volgende dienst over van {giver_name}:\n\n"
-        + "\n".join(lines)
-        + "\n\nWij hebben dit allebei bevestigd.\n\n"
-        "Met vriendelijke groet,\n"
-        f"{giver_name} en {taker_name}"
-    )
-    subject = f"Dienstruil {fmt_date(shift.day)} · {shift.code}"
-    if shift.when:
-        subject += f" {shift.when}"
-    return PlanningMail(
-        to=planning,
-        cc=[e for e in (giver_email, taker_email) if e],
-        subject=subject,
-        body=body,
-    )
