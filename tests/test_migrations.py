@@ -30,6 +30,14 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
         "insert into listings(kind,user_id,date,start,end,shift_type,note,status,created_at)"
         " values('offer',1,'2026-12-01','18:00','23:00','G','','open','2026-10-01')"
     )
+    con.execute(
+        "insert into listings(kind,user_id,date,start,end,shift_type,note,status,created_at)"
+        " values('offer',1,'2026-12-02','18:00','23:00','I','','open','2026-10-01')"
+    )
+    con.execute(
+        "insert into listings(kind,user_id,date,wanted_types,note,status,created_at)"
+        " values('wanted',1,'2026-12-03','H,I,G','','open','2026-10-01')"
+    )
     con.commit()
     con.close()
 
@@ -38,7 +46,10 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
     con = sqlite3.connect(db)
     heads = {p.name.split("_")[0] for p in (ROOT / "migrations/versions").glob("*.py")}
     assert con.execute("select version_num from alembic_version").fetchone()[0] in heads
-    assert con.execute("select count(*) from listings").fetchone()[0] == 1
+    assert con.execute("select count(*) from listings").fetchone()[0] == 3
+    # "I" became "Inwerk", also inside wanted_types
+    types = [r[0] for r in con.execute("select coalesce(shift_type, wanted_types) from listings")]
+    assert types == ["G", "Inwerk", "H,Inwerk,G"]
     # email became optional
     con.execute(
         "insert into users(name,is_admin,is_active,email_notifications,session_epoch,created_at)"

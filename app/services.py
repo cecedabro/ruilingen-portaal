@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.config import Settings, get_settings
 from app.models import (
+    AppSetting,
     Kind,
     Listing,
     ListingStatus,
@@ -112,39 +113,71 @@ def _check_capacity(db: Session, user: User, today: date) -> None:
         raise SwapError(f"Je hebt al {MAX_OPEN_LISTINGS} open diensten staan.")
 
 
+# Zaal and werkplek are fixed choices, but the real room names would identify the employer, so
+# they are not in this (public) repo: admins set them on Beheer and they live in the database.
+DEFAULT_LISTS = {
+    "halls": ["Grote Zaal", "Kleine Zaal", "Overig"],
+    "workplaces": ["Foyer 1", "Foyer 2", "Bar", "Overig"],
+}
+
+
+def get_list(db: Session, key: str) -> list[str]:
+    row = db.get(AppSetting, key)
+    if row is None:
+        return list(DEFAULT_LISTS[key])
+    return [line for line in row.value.splitlines() if line.strip()]
+
+
+def set_list(db: Session, key: str, values: list[str]) -> list[str]:
+    assert key in DEFAULT_LISTS
+    clean = list(dict.fromkeys(" ".join(v.split())[:60] for v in values if v.strip()))[:40]
+    row = db.get(AppSetting, key)
+    if row is None:
+        db.add(AppSetting(key=key, value="\n".join(clean)))
+    else:
+        row.value = "\n".join(clean)
+    db.commit()
+    return clean
+
+
+def _pick(value: str | None, options: list[str], label: str) -> str | None:
+    value = " ".join((value or "").split())
+    if not value:
+        return None
+    for option in options:
+        if option.lower() == value.lower():
+            return option
+    raise SwapError(f"Kies een {label} uit de lijst.")
+
+
 def shift_details(
+    db: Session,
     *,
     start: str | None = None,
     end: str | None = None,
     daypart: str | None = None,
     hall: str | None = None,
     workplace: str | None = None,
+    require_time: bool = True,
 ) -> dict:
-    """The optional when/where of a shift. Either a time (both ends), or a part of the day, or
-    nothing at all; zaal and werkplek are free text."""
+    """When/where of a shift. Begin and end time are required (for a shift someone gives
+    away or offers); zaal and werkplek are optional, chosen from the admin-managed lists."""
     start, end = (start or "").strip(), (end or "").strip()
-    if start or end:
+    if start or end or require_time:
         if not (is_time(start) and is_time(end)):
-            raise SwapError("Vul zowel een begin- als eindtijd in, of laat ze allebei leeg.")
+            raise SwapError("Vul een begin- en eindtijd in.")
         if start == end:
             raise SwapError("Begin- en eindtijd zijn gelijk.")
         daypart = None  # the time says it all
     else:
         start = end = None
         daypart = daypart if daypart in DAYPARTS else None
-
-    def short(value: str | None, label: str) -> str | None:
-        value = " ".join((value or "").split())
-        if len(value) > 60:
-            raise SwapError(f"{label} mag maximaal 60 tekens zijn.")
-        return value or None
-
     return {
         "start": start,
         "end": end,
         "daypart": daypart,
-        "hall": short(hall, "Zaal"),
-        "workplace": short(workplace, "Werkplek"),
+        "hall": _pick(hall, get_list(db, "halls"), "zaal"),
+        "workplace": _pick(workplace, get_list(db, "workplaces"), "werkplek"),
     }
 
 
@@ -154,7 +187,7 @@ def create_offer(
     _check_date(day, today)
     if not is_shift_type(code):
         raise SwapError("Kies een soort dienst.")
-    fields = shift_details(**details)
+    fields = shift_details(db, **details)
     _check_capacity(db, user, today)
     listing = Listing(
         kind=Kind.OFFER,
@@ -232,6 +265,7 @@ def react(
         if not (offer_type and is_shift_type(offer_type)):
             raise SwapError("Kies de soort dienst die je aanbiedt.")
         fields = shift_details(
+            db,
             start=offer_start,
             end=offer_end,
             daypart=offer_daypart,

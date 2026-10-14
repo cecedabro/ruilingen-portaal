@@ -33,6 +33,10 @@ button{cursor:pointer}
 .meta{font-size:13px;color:var(--muted)}
 form.inline{display:inline}
 select,input,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-width:0;width:100%;min-height:40px}
+/* iOS Safari gives date/time inputs an intrinsic min-width that overflows narrow columns */
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;height:42px;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
+fieldset{border:0;margin:0;padding:0;min-width:0}
 input[type=checkbox]{width:18px;height:18px;min-height:0;accent-color:var(--accent)}
 svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
@@ -54,7 +58,10 @@ header.top{position:sticky;top:0;z-index:5;background:var(--nav);color:var(--nav
 /* tab bar: bottom on phones, under the header on wider screens */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 .tabbar a{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:var(--tabbar);color:var(--muted);text-decoration:none;font-size:11px;font-weight:500}
-.tabbar a[aria-current="page"]{color:var(--accent)}
+.tabbar a[aria-current="page"]{color:var(--accent);font-weight:700}
+.tabbar svg{padding:3px 14px;box-sizing:content-box;border-radius:999px;transition:background .15s}
+.tabbar a[aria-current="page"] svg{background:var(--accent-soft);stroke-width:2.2}
+.tabbar a[aria-current="page"]::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
 .tabbar b{position:absolute;top:6px;left:calc(50% + 8px);min-width:17px;height:17px;border-radius:9px;background:var(--surface-2);color:var(--ink-2);font:600 11px/17px var(--f-body);padding:0 4px;text-align:center}
 .tabbar b.todo{background:var(--accent);color:var(--accent-ink)}
 @media (min-width:768px){
@@ -62,7 +69,8 @@ header.top{position:sticky;top:0;z-index:5;background:var(--nav);color:var(--nav
   .tabbar{position:sticky;top:52px;display:flex;justify-content:center;gap:4px;border-top:0;border-bottom:1px solid var(--line);background:var(--surface)}
   .tabbar a{flex-direction:row;height:44px;padding:0 14px;font-size:14px;gap:8px;border-bottom:2px solid transparent}
   .tabbar a[aria-current="page"]{border-bottom-color:var(--accent)}
-  .tabbar svg{width:18px;height:18px}
+  .tabbar svg{width:18px;height:18px;padding:0;background:none !important}
+  .tabbar a[aria-current="page"]::before{display:none}
   .tabbar b{position:static}
 }
 
@@ -142,6 +150,12 @@ details.mailtext summary{cursor:pointer;color:var(--muted);font-size:13px}
 /* forms */
 .form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:16px;margin-top:12px}
 .seg{display:flex;background:var(--surface-2);border-radius:10px;padding:3px}
+.seg label{flex:1;cursor:pointer}
+.seg input{position:absolute;opacity:0;width:1px;height:1px}
+.seg span{display:block;text-align:center;border-radius:8px;padding:8px 10px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg input:checked + span{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.form[data-kind="offer"] .only-wanted,.form[data-kind="wanted"] .only-offer{display:none}
 .seg a{flex:1;text-align:center;border-radius:8px;padding:7px 10px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none}
 .seg a[aria-current="true"]{background:var(--surface);color:var(--accent);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -192,3 +206,10 @@ footer.foot{margin-top:28px;font-size:13px;color:var(--muted);display:flex;flex-
 .week input:checked + span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .week input:checked + span small,.week input:checked + span i{color:var(--accent-ink)}
 .week input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+
+/* smooth page changes (Safari 18.2+, Chrome 126+): the header and tab bar stay put */
+@view-transition{navigation:auto}
+header.top{view-transition-name:header}
+.tabbar{view-transition-name:tabbar}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.12s}
+@media (prefers-reduced-motion:reduce){ @view-transition{navigation:none} }

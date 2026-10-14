@@ -2,6 +2,7 @@
 
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli admin-link "Your Name"
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli join-link
+    kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli set-list halls "A;B;Overig"
 
 `admin-link` creates the user if needed, makes them admin and prints a one-time login link
 (valid 60 minutes). Open it on your phone; you stay logged in there.
@@ -11,7 +12,7 @@ import sys
 
 from sqlalchemy import func, select
 
-from app import auth
+from app import auth, services
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import User
@@ -22,6 +23,9 @@ def main(argv: list[str]) -> int:
     with SessionLocal() as db:
         if argv[:1] == ["join-link"]:
             print(auth.join_link(db, settings))
+            return 0
+        if argv[:1] == ["set-list"] and len(argv) == 3 and argv[1] in services.DEFAULT_LISTS:
+            print("\n".join(services.set_list(db, argv[1], argv[2].split(";"))))
             return 0
         if argv[:1] == ["admin-link"] and len(argv) == 2:
             name = auth.clean_name(argv[1])

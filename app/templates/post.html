@@ -1,60 +1,52 @@
 {% extends "base.html" %}
-{% import "_macros.html" as m %}
 {% block title %}Plaatsen · {{ settings.app_name }}{% endblock %}
 {% block content %}
 {% set offer = kind == "offer" %}
-<form class="form" method="post" action="/plaatsen">
-  <div class="seg" role="group" aria-label="Wat wil je?">
-    <a href="/plaatsen" {% if offer %}aria-current="true"{% endif %}>Weggeven</a>
-    <a href="/plaatsen?soort=gezocht" {% if not offer %}aria-current="true"{% endif %}>Zoeken</a>
+{# Both variants are in the page; switching is instant (app.js / CSS). The hidden variant's
+   fieldsets are disabled, so they're neither validated nor submitted. #}
+<form class="form" method="post" action="/plaatsen" data-kind="{{ kind }}" data-kind-switch>
+  <div class="seg" role="radiogroup" aria-label="Wat wil je?">
+    <label><input type="radio" name="kind" value="offer" {% if offer %}checked{% endif %}><span>Weggeven</span></label>
+    <label><input type="radio" name="kind" value="wanted" {% if not offer %}checked{% endif %}><span>Zoeken</span></label>
   </div>
-  <input type="hidden" name="kind" value="{{ kind }}">
   {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
 
   <div class="field"><label for="fd">Datum</label>
     <input type="date" id="fd" name="day" required min="{{ today.isoformat() }}" value="{{ form.day or '' }}"></div>
 
-  <fieldset class="field">
-    <legend>{{ "Soort" if offer else "Soort (meerdere mag)" }}</legend>
+  <fieldset class="field only-offer" {% if not offer %}disabled{% endif %}>
+    <legend>Soort</legend>
     <div class="typepick">
-      {% for t in SHIFT_TYPES %}
-      <label>
-        {% if offer %}<input type="radio" name="code" value="{{ t }}" {% if form.code == t %}checked{% endif %} required>
-        {% else %}<input type="checkbox" name="codes" value="{{ t }}" {% if t in (form.codes or []) %}checked{% endif %}>{% endif %}
-        <span>{{ t }}</span>
-      </label>
-      {% endfor %}
+      {% for t in SHIFT_TYPES %}<label><input type="radio" name="code" value="{{ t }}" {% if form.code == t %}checked{% endif %} required><span>{{ t }}</span></label>{% endfor %}
+    </div>
+  </fieldset>
+  <fieldset class="field only-wanted" {% if offer %}disabled{% endif %}>
+    <legend>Soort <span class="opt">meerdere mag</span></legend>
+    <div class="typepick">
+      {% for t in SHIFT_TYPES %}<label><input type="checkbox" name="codes" value="{{ t }}" {% if t in (form.codes or []) %}checked{% endif %}><span>{{ t }}</span></label>{% endfor %}
     </div>
   </fieldset>
 
-  <fieldset class="field">
-    <legend>Wanneer <span class="opt">optioneel</span></legend>
+  <fieldset class="grid2 only-offer" {% if not offer %}disabled{% endif %}>
+    <div class="field"><label for="fs">Begin</label><input type="time" id="fs" name="start" required value="{{ form.start or '' }}"></div>
+    <div class="field"><label for="fe">Eind</label><input type="time" id="fe" name="end" required value="{{ form.end or '' }}"></div>
+  </fieldset>
+  <fieldset class="field only-wanted" {% if offer %}disabled{% endif %}>
+    <legend>Dagdeel <span class="opt">optioneel</span></legend>
     <div class="typepick">
-      {% for p in DAYPARTS %}
-      <label><input type="radio" name="daypart" value="{{ p }}" {% if form.daypart == p %}checked{% endif %}><span>{{ p }}</span></label>
-      {% endfor %}
+      {% for p in DAYPARTS %}<label><input type="radio" name="daypart" value="{{ p }}" {% if form.daypart == p %}checked{% endif %}><span>{{ p }}</span></label>{% endfor %}
     </div>
-    {% if offer %}
-    <div class="grid2">
-      <div class="field"><label for="fs">Begin</label><input type="time" id="fs" name="start" value="{{ form.start or '' }}"></div>
-      <div class="field"><label for="fe">Eind</label><input type="time" id="fe" name="end" value="{{ form.end or '' }}"></div>
-    </div>
-    {% endif %}
   </fieldset>
 
-  {% if offer %}
-  <div class="grid2">
+  <fieldset class="grid2 only-offer" {% if not offer %}disabled{% endif %}>
     <div class="field"><label for="fh">Zaal <span class="opt">optioneel</span></label>
-      <input id="fh" name="hall" maxlength="60" list="halls" value="{{ form.hall or '' }}"></div>
+      <select id="fh" name="hall"><option value="">–</option>{% for h in halls %}<option {% if form.hall == h %}selected{% endif %}>{{ h }}</option>{% endfor %}</select></div>
     <div class="field"><label for="fw">Werkplek <span class="opt">optioneel</span></label>
-      <input id="fw" name="workplace" maxlength="60" list="workplaces" value="{{ form.workplace or '' }}"></div>
-  </div>
-  {% endif %}
+      <select id="fw" name="workplace"><option value="">–</option>{% for w in workplaces %}<option {% if form.workplace == w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select></div>
+  </fieldset>
 
   <div class="field"><label for="fn">Opmerking <span class="opt">optioneel</span></label>
     <textarea id="fn" name="note" rows="2" maxlength="200">{{ form.note or '' }}</textarea></div>
   <div><button class="btn primary" type="submit">Plaatsen</button></div>
 </form>
-<datalist id="halls">{% for h in halls %}<option value="{{ h }}">{% endfor %}</datalist>
-<datalist id="workplaces">{% for w in workplaces %}<option value="{{ w }}">{% endfor %}</datalist>
 {% endblock %}

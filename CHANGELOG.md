@@ -14,6 +14,22 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.5.0 (2026-10-14)
+- Instant navigation: the four tabs are prefetched and links swap the page in place (no
+  reload); full page loads cross-fade (view transitions). Weggeven/Zoeken switches in place.
+- Clearer active tab in the bottom bar (tinted pill, bold label, indicator).
+- Offers (and shifts offered in reply) require type, date, begin and end time.
+- Zaal and werkplek are fixed choices from lists admins edit on Beheer (stored in the database,
+  not in this public repo; generic defaults until set).
+- Shift type "I" is now "Inwerk".
+- iOS Safari: date/time inputs no longer overflow on narrow screens.
+
+- **Schema change: data only** (`410c76a25636` renames shift type `I` → `Inwerk` in existing
+  rows). Rolling back to 0.4.0 needs a database restore (0.4.0 doesn't know "Inwerk").
+- New secret keys: none
+- Manifest changes: none. After deploy, set the real lists once on Beheer (or
+  `python -m app.cli set-list halls "...;..."`).
+
 ## 0.4.0 (2026-10-13)
 - Light/dark switch in the header, remembered per device (cookie); light stays the default.
 - Posting time removed from the boards (the #n posting order stays).

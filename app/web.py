@@ -66,7 +66,8 @@ def render(
         request=request,
         user=user,
         settings=settings,
-        messages=request.session.pop("flash", []),
+        # A background prefetch (app.js) must not use up messages meant for the real page.
+        messages=[] if request.headers.get("x-prefetch") else request.session.pop("flash", []),
     )
     if user is not None and db is not None:
         today = services.local_today(settings)

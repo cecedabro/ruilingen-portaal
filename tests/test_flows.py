@@ -303,7 +303,7 @@ def test_wanted_flow_offerer_becomes_giver(people):
         data={"offer_type": "G", "offer_start": "19:00"},
         follow_redirects=True,
     )
-    assert "begin- als eindtijd" in r.text
+    assert "begin- en eindtijd" in r.text
     s_client.post(
         f"/listings/{listing.id}/react",
         data={"offer_start": "19:00", "offer_end": "23:00", "offer_type": "G"},
@@ -570,14 +570,23 @@ def test_mail_disabled_hides_email_login(monkeypatch):
 # ---------------------------------------------------------------- optional shift details
 
 
-def test_offer_with_only_type_and_date(people):
+def test_offer_needs_type_date_and_time(people):
     _, client = people["daan"]
-    day = TODAY + timedelta(days=3)
-    r = client.post("/plaatsen", data={"kind": "offer", "day": day.isoformat(), "code": "HG"})
-    assert r.status_code == 200, r.text
+    day = (TODAY + timedelta(days=3)).isoformat()
+    r = client.post("/plaatsen", data={"kind": "offer", "day": day, "code": "HG"})
+    assert r.status_code == 422 and "begin- en eindtijd" in r.text
+    r = client.post(
+        "/plaatsen", data={"kind": "offer", "day": day, "start": "18:00", "end": "23:00"}
+    )
+    assert r.status_code == 422 and "soort dienst" in r.text
+    r = client.post(
+        "/plaatsen",
+        data={"kind": "offer", "day": day, "code": "HG", "start": "18:00", "end": "23:00"},
+    )
+    assert r.status_code == 200
     with SessionLocal() as s:
         listing = s.scalars(select(Listing)).one()
-        assert (listing.start, listing.end, listing.daypart, listing.hall) == (None,) * 4
+        assert (listing.hall, listing.workplace) == (None, None)  # still optional
 
 
 def test_offer_with_all_details(people):
@@ -605,18 +614,29 @@ def test_offer_with_all_details(people):
     _, other = people["sanne"]
     page = other.get("/aangeboden").text
     assert "<dd>Grote Zaal</dd>" in page and "<dd>Foyer 2</dd>" in page and "19:10" in page
-    # ...and the zaal is suggested next time
-    assert '<option value="Grote Zaal">' in client.get("/plaatsen").text
+    # zaal and werkplek are choices from the admin lists, not free text
+    r = client.post(
+        "/plaatsen",
+        data={
+            "kind": "offer",
+            "day": day,
+            "code": "H",
+            "start": "19:10",
+            "end": "22:30",
+            "hall": "Zolder",
+        },
+    )
+    assert r.status_code == 422 and "zaal uit de lijst" in r.text
 
 
 def test_half_a_time_is_rejected(people):
     _, client = people["daan"]
     day = (TODAY + timedelta(days=3)).isoformat()
     r = client.post("/plaatsen", data={"kind": "offer", "day": day, "code": "H", "start": "19:00"})
-    assert r.status_code == 422 and "begin- als eindtijd" in r.text
+    assert r.status_code == 422 and "begin- en eindtijd" in r.text
 
 
-def test_wanted_reply_with_only_a_type(people):
+def test_wanted_reply_needs_type_and_time(people):
     noor, n_client = people["noor"]
     _, s_client = people["sanne"]
     day = (TODAY + timedelta(days=4)).isoformat()
@@ -625,12 +645,22 @@ def test_wanted_reply_with_only_a_type(people):
     )
     with SessionLocal() as s:
         listing = s.scalars(select(Listing)).one()
-        assert listing.daypart == "avond"
+        assert listing.daypart == "avond"  # a wanted request keeps an optional dagdeel
+    r = s_client.post(
+        f"/listings/{listing.id}/react", data={"offer_type": "HG"}, follow_redirects=True
+    )
+    assert "begin- en eindtijd" in r.text and reactions(listing.id) == []
     s_client.post(
-        f"/listings/{listing.id}/react", data={"offer_type": "HG", "offer_daypart": "avond"}
+        f"/listings/{listing.id}/react",
+        data={
+            "offer_type": "HG",
+            "offer_start": "19:00",
+            "offer_end": "23:00",
+            "offer_hall": "Grote Zaal",
+        },
     )
     r = reactions(listing.id)[0]
-    assert (r.offer_type, r.offer_daypart, r.offer_start) == ("HG", "avond", None)
+    assert (r.offer_type, r.offer_start, r.offer_hall) == ("HG", "19:00", "Grote Zaal")
 
 
 # ---------------------------------------------------------------- board filters and status
@@ -638,7 +668,7 @@ def test_wanted_reply_with_only_a_type(people):
 
 def _offer(client, days, code, **extra):
     data = {"kind": "offer", "day": (TODAY + timedelta(days=days)).isoformat(), "code": code}
-    data.update(extra)
+    data.update({"start": "18:00", "end": "23:00"}, **extra)
     assert client.post("/plaatsen", data=data).status_code == 200
 
 
@@ -652,8 +682,8 @@ def test_board_filters(people):
     _, d = people["daan"]
     _, n = people["noor"]
     _offer(d, 2, "HG", start="19:00", end="23:00", hall="Grote Zaal", note="a")
-    _offer(d, 2, "G", daypart="ochtend", hall="Kleine Zaal", note="b")
-    _offer(d, 9, "R", note="c")
+    _offer(d, 2, "G", start="09:00", end="12:00", hall="Kleine Zaal", note="b")
+    _offer(d, 9, "R", start="13:00", end="16:00", note="c")
     _, s_client = people["sanne"]
     assert _shown(s_client) == {"a", "b", "c"}
     assert _shown(s_client, "?soort=G") == {"a", "b"}  # a letter matches HG too
@@ -688,7 +718,7 @@ def test_posting_order_is_visible(people):
 def test_board_is_ordered_by_shift_date_and_time(people):
     _, d = people["daan"]
     _offer(d, 5, "H", note="later")
-    _offer(d, 2, "H", daypart="avond", note="avond")
+    _offer(d, 2, "H", start="19:00", end="23:00", note="avond")
     _offer(d, 2, "H", start="10:00", end="14:00", note="ochtend")
     _, s_client = people["sanne"]
     page = s_client.get("/aangeboden").text
@@ -761,3 +791,36 @@ def test_theme_switch_without_js(people):
     assert 'data-theme="dark"' in client.get("/aangeboden").text
     client.post("/theme", data={"next": "/"})
     assert 'data-theme="light"' in client.get("/aangeboden").text
+
+
+# ---------------------------------------------------------------- venue lists, Inwerk, prefetch
+
+
+def test_admin_edits_venue_lists(people):
+    _, s_client = people["sanne"]
+    admin = make_user("Ad Min", is_admin=True)
+    a_client = login(TestClient(app), admin)
+    a_client.post(
+        "/beheer/lijsten", data={"halls": "Zaal A\nZaal B\n\nOverig", "workplaces": "Bar 1"}
+    )
+    page = s_client.get("/plaatsen").text
+    assert ">Zaal A</option>" in page and ">Bar 1</option>" in page
+    assert ">Grote Zaal</option>" not in page
+    assert s_client.post("/beheer/lijsten", data={"halls": "x"}).status_code == 403
+
+
+def test_inwerk_is_a_shift_type(people):
+    _, d = people["daan"]
+    _offer(d, 2, "Inwerk", note="inwerk")
+    _, s_client = people["sanne"]
+    assert _shown(s_client, "?soort=I") == {"inwerk"}
+    assert ">Inwerk<" in s_client.get("/aangeboden").text
+
+
+def test_prefetch_does_not_eat_flash_messages(people):
+    _, d = people["daan"]
+    day = (TODAY + timedelta(days=2)).isoformat()
+    data = {"kind": "offer", "day": day, "code": "H", "start": "18:00", "end": "23:00"}
+    d.post("/plaatsen", data=data, follow_redirects=False)  # flash set, not shown yet
+    d.get("/gezocht", headers={"X-Prefetch": "1"})
+    assert "Geplaatst." in d.get("/aangeboden").text

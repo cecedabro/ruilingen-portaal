@@ -281,7 +281,7 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
     weeks = services.day_choices(
         today(), everything, set(flt.dagen), settings.roster_release_weekday
     )
-    halls = sorted({lst.hall for lst in everything if lst.hall}, key=str.lower)
+    halls = services.get_list(db, "halls")
     return render(
         request,
         "board.html",
@@ -295,6 +295,7 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         total=len(everything),
         flt=flt,
         halls=halls,
+        workplaces=services.get_list(db, "workplaces"),
         tab=kind.value,
         here=request.url.path + (f"?{request.url.query}" if request.url.query else ""),
     )
@@ -332,19 +333,6 @@ def mine(request: Request, user=Depends(require_user), db=Depends(get_db)):
 # ---------------------------------------------------------------- posting
 
 
-def _suggestions(db: Session, column) -> list[str]:
-    """Zaal/werkplek values used before, for the form's autocomplete. Most used first."""
-    return list(
-        db.scalars(
-            select(column)
-            .where(column.is_not(None))
-            .group_by(column)
-            .order_by(func.count().desc(), column)
-            .limit(30)
-        )
-    )
-
-
 def _post_page(request: Request, db: Session, user: User, kind: Kind, form: dict, **ctx):
     return render(
         request,
@@ -355,8 +343,8 @@ def _post_page(request: Request, db: Session, user: User, kind: Kind, form: dict
         tab="plaatsen",
         today=today(),
         form=form,
-        halls=_suggestions(db, Listing.hall),
-        workplaces=_suggestions(db, Listing.workplace),
+        halls=services.get_list(db, "halls"),
+        workplaces=services.get_list(db, "workplaces"),
         **ctx,
     )
 
@@ -722,6 +710,8 @@ def _admin_page(request: Request, db: Session, user: User, **ctx):
         user=user,
         users=users,
         join_url=auth.join_link(db, settings),
+        halls=services.get_list(db, "halls"),
+        workplaces=services.get_list(db, "workplaces"),
         **ctx,
     )
 
@@ -729,6 +719,20 @@ def _admin_page(request: Request, db: Session, user: User, **ctx):
 @app.get("/beheer", response_class=HTMLResponse)
 def admin(request: Request, user=Depends(require_admin), db=Depends(get_db)):
     return _admin_page(request, db, user)
+
+
+@app.post("/beheer/lijsten")
+def admin_lists(
+    request: Request,
+    halls: str = Form(""),
+    workplaces: str = Form(""),
+    user=Depends(require_admin),
+    db=Depends(get_db),
+):
+    services.set_list(db, "halls", halls.splitlines())
+    services.set_list(db, "workplaces", workplaces.splitlines())
+    flash(request, "Lijsten opgeslagen.")
+    return redirect("/beheer")
 
 
 @app.post("/beheer/join-link")

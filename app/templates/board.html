@@ -35,19 +35,18 @@
 </form>
 {% if items and posted_order %}
 <div class="list">
-  {% for l in items %}{{ m.shift(l, user, next=here, show_date=true, rank=ranks[l.id]) }}{% endfor %}
+  {% for l in items %}{{ m.shift(l, user, next=here, show_date=true, rank=ranks[l.id], halls=halls, workplaces=workplaces) }}{% endfor %}
 </div>
 {% elif items %}
 <div class="days">
   {% for day, group in items | groupby("date") %}
   <section class="day">
     <h2 class="dayhead">{{ fmt_date_long(day) | capitalize }}</h2>
-    {% for l in group %}{{ m.shift(l, user, next=here, rank=ranks[l.id]) }}{% endfor %}
+    {% for l in group %}{{ m.shift(l, user, next=here, rank=ranks[l.id], halls=halls, workplaces=workplaces) }}{% endfor %}
   </section>
   {% endfor %}
 </div>
 {% else %}
 <div class="empty">{% if flt.active %}Niks met deze filters. <a href="{{ path }}">Wis filters</a>{% else %}Niks. <a href="/plaatsen{{ '?soort=gezocht' if kind == 'wanted' }}">Plaats er een</a>{% endif %}</div>
 {% endif %}
-<datalist id="halls">{% for h in halls %}<option value="{{ h }}">{% endfor %}</datalist>
 {% endblock %}

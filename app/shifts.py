@@ -14,7 +14,7 @@ PARTS = {
     "R": "Receptie",
     "I": "Inwerkdienst",
 }
-SHIFT_TYPES = ["H", "HG", "GH", "G", "CGH", "CHG", "CH", "R", "PH", "PHG", "PGH", "I"]
+SHIFT_TYPES = ["H", "HG", "GH", "G", "CGH", "CHG", "CH", "R", "PH", "PHG", "PGH", "Inwerk"]
 
 # Part of the day, for when the exact time doesn't matter or isn't known yet.
 DAYPARTS = ["ochtend", "middag", "avond"]
@@ -49,6 +49,8 @@ def is_time(value: str) -> bool:
 
 
 def explain(code: str) -> str:
+    if code == "Inwerk":
+        return PARTS["I"]
     return " → ".join(PARTS.get(c, c) for c in code)
 
 

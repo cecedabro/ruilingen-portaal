@@ -12,6 +12,17 @@
   </form>
 </div>
 
+<form class="form" method="post" action="/beheer/lijsten">
+  <h2>Keuzelijsten</h2>
+  <div class="grid2">
+    <div class="field"><label for="lh">Zalen <span class="opt">één per regel</span></label>
+      <textarea id="lh" name="halls" rows="6">{{ halls | join("\n") }}</textarea></div>
+    <div class="field"><label for="lw">Werkplekken <span class="opt">één per regel</span></label>
+      <textarea id="lw" name="workplaces" rows="6">{{ workplaces | join("\n") }}</textarea></div>
+  </div>
+  <div><button class="btn primary" type="submit">Opslaan</button></div>
+</form>
+
 {% if user_link %}
 <div class="form">
   <h2>Inloglink voor {{ user_link[0].name }}</h2>

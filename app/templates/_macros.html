@@ -17,17 +17,19 @@
 {% endif %}
 {%- endmacro %}
 
-{% macro offer_fields(l) -%}
-<div class="grid3">
-  <div class="field"><label for="op{{ l.id }}">Dagdeel</label>
-    <select id="op{{ l.id }}" name="offer_daypart"><option value="">–</option>{% for p in DAYPARTS %}<option>{{ p }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="os{{ l.id }}">Begin</label><input type="time" id="os{{ l.id }}" name="offer_start"></div>
-  <div class="field"><label for="oe{{ l.id }}">Eind</label><input type="time" id="oe{{ l.id }}" name="offer_end"></div>
+{% macro offer_fields(l, halls, workplaces) -%}
+<div class="grid2">
+  <div class="field"><label for="os{{ l.id }}">Begin</label><input type="time" id="os{{ l.id }}" name="offer_start" required></div>
+  <div class="field"><label for="oe{{ l.id }}">Eind</label><input type="time" id="oe{{ l.id }}" name="offer_end" required></div>
+  <div class="field"><label for="oh{{ l.id }}">Zaal</label>
+    <select id="oh{{ l.id }}" name="offer_hall"><option value="">–</option>{% for h in halls %}<option>{{ h }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="ow{{ l.id }}">Werkplek</label>
+    <select id="ow{{ l.id }}" name="offer_workplace"><option value="">–</option>{% for w in workplaces %}<option>{{ w }}</option>{% endfor %}</select></div>
 </div>
 {%- endmacro %}
 
 {# One shift as a row. `show_date` when it isn't under a date heading (Mijn). #}
-{% macro shift(l, user, next="", extra="", show_date=false, rank=none) -%}
+{% macro shift(l, user, next="", extra="", show_date=false, rank=none, halls=[], workplaces=[]) -%}
 {% set mine = l.user_id == user.id %}
 {% set pending = l.pending_reactions %}
 {% set mine_r = pending | selectattr("user_id", "equalto", user.id) | first %}
@@ -75,11 +77,7 @@
             {% for t in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
             {% for t in SHIFT_TYPES if t not in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
           </select></div>
-        {{ offer_fields(l) }}
-        <div class="grid2">
-          <div class="field"><label for="oh{{ l.id }}">Zaal</label><input id="oh{{ l.id }}" name="offer_hall" maxlength="60" list="halls"></div>
-          <div class="field"><label for="ow{{ l.id }}">Werkplek</label><input id="ow{{ l.id }}" name="offer_workplace" maxlength="60"></div>
-        </div>
+        {{ offer_fields(l, halls, workplaces) }}
         <div><button class="btn primary" type="submit">Aanbieden</button></div>
       </form>
     </details>
