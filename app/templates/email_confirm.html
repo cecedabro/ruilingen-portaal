@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}E-mailadres · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div class="form narrow">
+{% if done %}
+  <h2>E-mailadres bevestigd</h2>
+  <p>Je krijgt meldingen nu ook per mail. Uitzetten kan via Account.</p>
+{% elif valid %}
+  <h2>E-mailadres bevestigen</h2>
+  <p><b>{{ email }}</b> gebruiken voor meldingen?</p>
+  <form method="post"><button class="btn primary" type="submit">Bevestigen</button></form>
+{% else %}
+  <h2>Deze link werkt niet meer</h2>
+  <p>Hij is verlopen of al gebruikt. Vul je adres opnieuw in via Account.</p>
+{% endif %}
+</div>
+{% endblock %}

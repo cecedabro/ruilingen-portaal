@@ -1,7 +1,6 @@
 import asyncio
 import contextlib
 import logging
-import secrets
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import date
@@ -19,7 +18,7 @@ from app import auth, services
 from app.auth import LoginRequired, current_user, require_admin, require_user
 from app.config import get_settings
 from app.db import SessionLocal, get_db
-from app.models import Kind, Listing, Notification, User, utcnow
+from app.models import InviteLink, Kind, Notification, User, utcnow
 from app.services import Deal, SwapError
 from app.shifts import planning_mail
 from app.web import flash, redirect, render, safe_next, send_queued
@@ -27,16 +26,6 @@ from app.web import flash, redirect, render, safe_next, send_queued
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s %(message)s")
 log = logging.getLogger("ruilingen")
 settings = get_settings()
-
-
-def bootstrap_admins(db: Session) -> None:
-    for email in settings.admin_email_list:
-        user = db.scalar(select(User).where(User.email == email))
-        if user is None:
-            db.add(User(email=email, name=email.split("@")[0].title(), is_admin=True))
-        elif not user.is_admin:
-            user.is_admin = True
-    db.commit()
 
 
 async def housekeeping_loop() -> None:
@@ -51,8 +40,6 @@ async def housekeeping_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    with SessionLocal() as db:
-        bootstrap_admins(db)
     task = asyncio.create_task(housekeeping_loop())
     yield
     task.cancel()
@@ -179,32 +166,12 @@ def login_form(request: Request, next: str | None = None, user=Depends(current_u
     return render(request, "login.html", next=safe_next(next, ""))
 
 
-@app.post("/login", response_class=HTMLResponse)
-def login_submit(
-    request: Request,
-    background: BackgroundTasks,
-    email: str = Form(""),
-    next: str = Form(""),
-    db: Session = Depends(get_db),
-):
-    db.info["mails"] = []
-    link = auth.request_login(db, settings, email, next_path=safe_next(next, ""))
-    db.commit()
-    send_queued(db, background)
-    return render(
-        request,
-        "login_sent.html",
-        email=auth.normalise_email(email),
-        dev_link=link if settings.dev_mode else None,
-    )
-
-
 @app.get("/join/{code}", response_class=HTMLResponse)
 def join_form(request: Request, code: str, user=Depends(current_user), db=Depends(get_db)):
     if user:
         return redirect("/aangeboden")
-    valid = secrets.compare_digest(code, auth.join_code(db))
-    return render(request, "join.html", code=code, valid=valid, name="")
+    link = auth.usable_link(db, code)
+    return render(request, "join.html", code=code, valid=link is not None, link=link, name="")
 
 
 @app.post("/join/{code}", response_class=HTMLResponse)
@@ -213,16 +180,28 @@ def join_submit(request: Request, code: str, name: str = Form(""), db=Depends(ge
         user = auth.join(db, code, name)
     except SwapError as e:
         db.rollback()
+        link = auth.usable_link(db, code)
         return render(
-            request, "join.html", code=code, valid=True, name=name, error=str(e), status_code=422
+            request,
+            "join.html",
+            code=code,
+            valid=link is not None,
+            link=link,
+            name=name,
+            error=str(e),
+            status_code=422,
         )
     auth.log_in(request, user)
+    if user.is_admin:
+        flash(request, "Welkom! Je bent beheerder: zie Beheer onderaan de pagina.")
     return redirect("/aangeboden")
 
 
 @app.get("/login/{token}", response_class=HTMLResponse)
 def login_confirm(request: Request, token: str, next: str | None = None, db=Depends(get_db)):
     found = auth.find_token(db, token)
+    if found is not None and found.email:  # an email verification link, see /email/
+        found = None
     return render(
         request,
         "login_confirm.html",
@@ -240,6 +219,24 @@ def login_finish(request: Request, token: str, next: str = Form(""), db=Depends(
         return redirect("/login")
     auth.log_in(request, user)
     return redirect(safe_next(next, "/aangeboden"))
+
+
+@app.get("/email/{token}", response_class=HTMLResponse)
+def email_confirm(request: Request, token: str, db=Depends(get_db)):
+    found = auth.find_token(db, token)
+    return render(
+        request,
+        "email_confirm.html",
+        valid=found is not None and bool(found.email),
+        email=found.email if found else "",
+    )
+
+
+@app.post("/email/{token}", response_class=HTMLResponse)
+def email_verify(request: Request, token: str, db=Depends(get_db)):
+    """Confirms the address only; logging in on this device is not part of it."""
+    user = auth.verify_email(db, token)
+    return render(request, "email_confirm.html", done=user is not None, valid=False, email="")
 
 
 @app.post("/theme")
@@ -683,15 +680,13 @@ def account_delete(
         flash(request, 'Typ "verwijder" om je account te verwijderen.', "error")
         return redirect("/account")
 
-    def _delete(db: Session, user: User) -> None:
-        # Close open listings properly first, so people who reacted get told.
-        for listing in db.scalars(select(Listing).where(Listing.user_id == user.id)):
-            if listing.status == "open":
-                services.remove_listing(db, user, listing.id)
-        db.flush()
-        db.delete(user)
-
-    services.run_write(db, _delete, user)
+    try:
+        services.run_write(
+            db, lambda db: services.delete_user(db, db.get(User, user.id), actor=user)
+        )
+    except SwapError as e:
+        flash(request, str(e), "error")
+        return redirect("/account")
     send_queued(db, background)
     auth.log_out(request)
     flash(request, "Je account en al je gegevens zijn verwijderd.")
@@ -702,14 +697,25 @@ def account_delete(
 
 
 def _admin_page(request: Request, db: Session, user: User, **ctx):
-    users = list(db.scalars(select(User).order_by(User.is_active.desc(), func.lower(User.name))))
+    users = list(db.scalars(select(User).order_by(User.is_admin.desc(), func.lower(User.name))))
+    links = list(
+        db.scalars(
+            select(InviteLink)
+            .where(InviteLink.is_main.is_(False))
+            .order_by(InviteLink.created_at.desc())
+            .limit(50)
+        )
+    )
+    main = auth.main_link(db)
     return render(
         request,
         "admin.html",
         db=db,
         user=user,
         users=users,
-        join_url=auth.join_link(db, settings),
+        main=main,
+        main_url=auth.link_url(settings, main),
+        links=[(lnk, auth.link_url(settings, lnk)) for lnk in links],
         halls=services.get_list(db, "halls"),
         workplaces=services.get_list(db, "workplaces"),
         **ctx,
@@ -735,11 +741,58 @@ def admin_lists(
     return redirect("/beheer")
 
 
-@app.post("/beheer/join-link")
-def admin_rotate(request: Request, user=Depends(require_admin), db=Depends(get_db)):
-    auth.rotate_join_code(db)
-    flash(request, "Nieuwe link gemaakt. De oude werkt niet meer; deel de nieuwe in de groep.")
-    return redirect("/beheer")
+@app.post("/beheer/links/main")
+def admin_renew_main(request: Request, user=Depends(require_admin), db=Depends(get_db)):
+    auth.renew_main_link(db, user)
+    flash(request, "Nieuwe groepslink gemaakt. De oude werkt niet meer: zet de nieuwe in de groep.")
+    return redirect("/beheer#links")
+
+
+def _optional_int(value: str) -> int | None:
+    value = value.strip()
+    if not value:
+        return None
+    if not value.isdigit():
+        raise SwapError("Vul een heel getal in, of laat het leeg.")
+    return int(value)
+
+
+@app.post("/beheer/links", response_class=HTMLResponse)
+def admin_create_link(
+    request: Request,
+    label: str = Form(""),
+    role: str = Form("member"),
+    max_uses: str = Form(""),
+    valid_days: str = Form(""),
+    user=Depends(require_admin),
+    db=Depends(get_db),
+):
+    try:
+        link = auth.create_link(
+            db,
+            user,
+            label=label,
+            role=role,
+            max_uses=_optional_int(max_uses),
+            valid_days=_optional_int(valid_days),
+        )
+    except SwapError as e:
+        flash(request, str(e), "error")
+        return redirect("/beheer#links")
+    return _admin_page(request, db, user, new_link=(link, auth.link_url(settings, link)))
+
+
+@app.post("/beheer/links/{link_id}/revoke")
+def admin_revoke_link(
+    request: Request, link_id: int, user=Depends(require_admin), db=Depends(get_db)
+):
+    try:
+        auth.revoke_link(db, link_id)
+    except SwapError as e:
+        flash(request, str(e), "error")
+    else:
+        flash(request, "Link ingetrokken.")
+    return redirect("/beheer#links")
 
 
 @app.post("/beheer/users/{user_id}/link", response_class=HTMLResponse)
@@ -747,32 +800,71 @@ def admin_user_link(
     request: Request, user_id: int, user=Depends(require_admin), db=Depends(get_db)
 ):
     target = db.get(User, user_id)
-    if target is None or not target.is_active:
-        flash(request, "Dat kan niet.", "error")
-        return redirect("/beheer")
+    if target is None:
+        flash(request, "Dat lid bestaat niet (meer).", "error")
+        return redirect("/beheer#leden")
     link = auth.make_link(db, settings, target, minutes=60 * 24)
     return _admin_page(request, db, user, user_link=(target, link))
-
-
-@app.post("/beheer/users/{user_id}/toggle")
-def admin_toggle(request: Request, user_id: int, user=Depends(require_admin), db=Depends(get_db)):
-    target = db.get(User, user_id)
-    if target is None or target.id == user.id:
-        flash(request, "Dat kan niet.", "error")
-        return redirect("/beheer")
-    target.is_active = not target.is_active
-    db.commit()
-    flash(request, f"{target.name} is {'weer actief' if target.is_active else 'geblokkeerd'}.")
-    return redirect("/beheer")
 
 
 @app.post("/beheer/users/{user_id}/admin")
 def admin_role(request: Request, user_id: int, user=Depends(require_admin), db=Depends(get_db)):
     target = db.get(User, user_id)
+    if target is None:
+        flash(request, "Dat lid bestaat niet (meer).", "error")
+        return redirect("/beheer#leden")
+    try:
+        services.set_admin(db, target, not target.is_admin)
+        db.commit()
+    except SwapError as e:
+        flash(request, str(e), "error")
+    else:
+        flash(request, f"{target.name} is {'nu' if target.is_admin else 'geen'} beheerder.")
+    return redirect("/beheer" if user.is_admin else "/aangeboden")
+
+
+@app.post("/beheer/users/{user_id}/delete")
+def admin_delete_user(
+    request: Request,
+    background: BackgroundTasks,
+    user_id: int,
+    user=Depends(require_admin),
+    db=Depends(get_db),
+):
+    target = db.get(User, user_id)
     if target is None or target.id == user.id:
-        flash(request, "Dat kan niet.", "error")
-        return redirect("/beheer")
-    target.is_admin = not target.is_admin
-    db.commit()
-    flash(request, f"{target.name} is {'nu' if target.is_admin else 'geen'} beheerder.")
-    return redirect("/beheer")
+        flash(request, "Je eigen account verwijder je via Account.", "error")
+        return redirect("/beheer#leden")
+    name = target.name
+    try:
+        services.run_write(
+            db, lambda db: services.delete_user(db, db.get(User, user_id), actor=user)
+        )
+    except SwapError as e:
+        flash(request, str(e), "error")
+    else:
+        send_queued(db, background)
+        flash(request, f"{name} en alle gegevens zijn verwijderd.")
+    return redirect("/beheer#leden")
+
+
+@app.post("/beheer/listings/{listing_id}/delete")
+def admin_delete_listing(
+    request: Request,
+    background: BackgroundTasks,
+    listing_id: int,
+    next: str = Form(""),
+    user=Depends(require_admin),
+    db=Depends(get_db),
+):
+    return act(
+        request,
+        db,
+        background,
+        services.admin_remove_listing,
+        user,
+        listing_id,
+        ok="Dienst verwijderd.",
+        next_url=next,
+        default="/aangeboden",
+    )

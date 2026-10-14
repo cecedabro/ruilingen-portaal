@@ -68,7 +68,7 @@ From OpenBao `secret/ruilingen/app` via External Secrets (`envFrom` the `ruiling
 |---|---|
 | `SESSION_SECRET` | set. Never rotate casually: it logs everyone out, and people without an email can only get back in with an admin-made link |
 | `PLANNING_EMAIL` | set |
-| `SMTP_USERNAME`, `SMTP_PASSWORD`, `ADMIN_EMAILS` | not set; only needed once mail is enabled |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | not set; only needed once mail is enabled |
 
 **A new required secret key must be added in OpenBao before the release that needs it**, or the
 pod fails to start. Say so in the release notes.
@@ -96,10 +96,11 @@ When a release needs one (new env var, new secret key, different port/probe, ...
   For real surgery, scale to 0 and work on a copy.
 
 ## Enabling mail later
-Optional: adds email notifications and email login for people who add an address.
+Optional: adds email notifications for people who add (and verify) an address. There is no
+email login: joining is only through invite links, and lost devices get an admin-made link.
 1. Mail provider (e.g. Resend) with `ruilingen.app` verified: SPF/DKIM/DMARC records in
    Cloudflare DNS (DNS-only).
-2. OpenBao: add `SMTP_USERNAME`, `SMTP_PASSWORD` (and optionally `ADMIN_EMAILS`).
+2. OpenBao: add `SMTP_USERNAME`, `SMTP_PASSWORD`.
 3. Homelab `deployment.yaml`: `MAIL_BACKEND=smtp` and uncomment `MAIL_FROM`, `SMTP_HOST`,
    `SMTP_PORT`.
 No app release is needed for this.

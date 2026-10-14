@@ -4,15 +4,6 @@
 <div class="form narrow">
   <h2>Meedoen</h2>
   <p>Open de link uit de groepsapp.</p>
-  {% if settings.mail_enabled %}
-  <form method="post" action="/login" class="field">
-    <label for="email">Of log in met je e-mailadres</label>
-    <input type="hidden" name="next" value="{{ next }}">
-    <div class="copyrow">
-      <input type="email" id="email" name="email" required autocomplete="email" placeholder="naam@voorbeeld.nl">
-      <button class="btn primary" type="submit">Stuur link</button>
-    </div>
-  </form>
-  {% endif %}
+  <p class="meta">Al lid, maar op een nieuw apparaat? Koppel het via Account op je andere apparaat, of vraag een beheerder om een inloglink.</p>
 </div>
 {% endblock %}

@@ -218,3 +218,35 @@ class AppSetting(Base):
 
     key: Mapped[str] = mapped_column(String(40), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
+
+
+class InviteLink(Base):
+    """A way in. The main link (in the group chat description) has no limits; extra links can
+    expire and/or have a maximum number of uses. Admin links make the newcomer an admin."""
+
+    __tablename__ = "invite_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True)
+    label: Mapped[str] = mapped_column(String(60), default="")
+    role: Mapped[str] = mapped_column(String(10), default="member")  # member / admin
+    is_main: Mapped[bool] = mapped_column(Boolean, default=False)
+    max_uses: Mapped[int | None] = mapped_column(Integer)
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+    created_by: Mapped[User | None] = relationship()
+
+    @property
+    def status(self) -> str:
+        """'actief', 'ingetrokken', 'verlopen' or 'vol'."""
+        if self.revoked_at:
+            return "ingetrokken"
+        if self.expires_at and self.expires_at <= utcnow():
+            return "verlopen"
+        if self.max_uses is not None and self.uses >= self.max_uses:
+            return "vol"
+        return "actief"

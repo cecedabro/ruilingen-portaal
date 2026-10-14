@@ -29,12 +29,10 @@ class Settings(BaseSettings):
     # Max login mails per address per hour (stops someone flooding a colleague's inbox).
     login_mails_per_hour: int = 5
 
-    # Comma separated. These addresses are made admin at startup (and created if missing).
-    admin_emails: str = ""
     planning_email: str = "planning@example.org"
 
     # "smtp" sends mail (Brevo, Resend, ... all speak SMTP). "console" only prints it to the log
-    # (development). "none": no mail at all; email login and notifications are hidden.
+    # (development). "none": no mail at all; the optional notification email is hidden.
     mail_backend: str = "none"
     mail_from: str = "Ruilingen <noreply@ruilingen.app>"
     smtp_host: str = ""
@@ -77,10 +75,6 @@ class Settings(BaseSettings):
         return (self.mail_backend == "smtp" and bool(self.smtp_host)) or (
             self.mail_backend == "console" and self.dev_mode
         )
-
-    @property
-    def admin_email_list(self) -> list[str]:
-        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
 
 
 @lru_cache

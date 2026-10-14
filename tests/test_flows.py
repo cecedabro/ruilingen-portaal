@@ -9,7 +9,17 @@ from app import mail, services
 from app.config import get_settings
 from app.db import SessionLocal
 from app.main import app
-from app.models import Kind, Listing, ListingStatus, Notification, Reaction, ReactionStatus, User
+from app.models import (
+    InviteLink,
+    Kind,
+    Listing,
+    ListingStatus,
+    Notification,
+    Reaction,
+    ReactionStatus,
+    User,
+    utcnow,
+)
 from tests.conftest import join, login, make_user
 
 TODAY = services.local_today(get_settings())
@@ -58,39 +68,27 @@ def test_pages_need_login():
     assert r.status_code == 303 and r.headers["location"].startswith("/login")
 
 
-def test_unknown_address_gets_no_mail_and_same_message():
-    client = TestClient(app)
-    r = client.post("/login", data={"email": "stranger@voorbeeld.nl"})
-    assert "Check je mail" in r.text
-    assert mail.outbox == []
+def test_one_time_link_needs_a_click_and_works_once():
+    from app import auth
 
-
-def test_magic_link_needs_a_click_and_works_once():
     user = make_user("Lotte Visser")
+    with SessionLocal() as db:
+        link = auth.make_link(db, get_settings(), db.get(User, user.id))
+    path = link.removeprefix("http://testserver")
     client = TestClient(app)
-    client.post("/login", data={"email": "  Lotte.Visser@Voorbeeld.nl "})
-    body = mail.outbox[-1].get_content()
-    path = body.split("http://testserver")[1].split()[0]
-
-    # A mail scanner opening the link must not log in or burn the token.
-    assert "Inloggen" in client.get(path).text
+    # A chat/mail link preview opening the link must not log in or burn it.
+    assert "Inloggen op dit apparaat" in client.get(path).text
     assert client.get("/aangeboden", follow_redirects=False).status_code == 303
-
     client.post(path, data={"next": "/gezocht"}, follow_redirects=False)
-    assert client.get("/aangeboden").status_code == 200
-    assert user.name in client.get("/aangeboden").text
-
-    other = TestClient(app)
-    r = other.post(path, follow_redirects=True)
+    assert "Lotte Visser" in client.get("/aangeboden").text
+    r = TestClient(app).post(path, follow_redirects=True)
     assert "verlopen of al gebruikt" in r.text
 
 
-def test_login_mails_are_rate_limited():
-    make_user("Bram Meijer")
+def test_no_email_login():
     client = TestClient(app)
-    for _ in range(8):
-        client.post("/login", data={"email": "bram.meijer@voorbeeld.nl"})
-    assert len(mail.outbox) == get_settings().login_mails_per_hour
+    assert 'name="email"' not in client.get("/login").text
+    assert client.post("/login", data={"email": "x@voorbeeld.nl"}).status_code == 405
 
 
 def test_blocked_user_is_logged_out(people):
@@ -399,35 +397,6 @@ def test_delete_account_removes_data_and_tells_reactors(people):
     assert d_client.get("/mijn", follow_redirects=False).status_code == 303
 
 
-def test_admin_pages(people):
-    sanne, s_client = people["sanne"]
-    assert s_client.get("/beheer").status_code == 403
-
-    admin = make_user("Ad Min", is_admin=True)
-    a_client = login(TestClient(app), admin)
-    page = a_client.get("/beheer").text
-    old_code = page.split("/join/")[1].split('"')[0]
-
-    # A one-time link for a colleague who lost their phone.
-    page = a_client.post(f"/beheer/users/{sanne.id}/link").text
-    link = page.split('id="userlink" value="http://testserver')[1].split('"')[0]
-    phone = TestClient(app)
-    phone.post(link, follow_redirects=False)
-    assert "Sanne de Vries" in phone.get("/aangeboden").text
-
-    # Rotating the join link stops the old one.
-    a_client.post("/beheer/join-link")
-    assert "werkt niet meer" in TestClient(app).get(f"/join/{old_code}").text
-
-
-def test_admin_bootstrap_on_startup():
-    with TestClient(app):  # runs lifespan
-        pass
-    with SessionLocal() as s:
-        admin = s.scalars(select(User).where(User.email == "admin@voorbeeld.nl")).one()
-        assert admin.is_admin
-
-
 def test_cleanup_removes_old_data(people, db):
     daan, _ = people["daan"]
     old = Listing(
@@ -509,20 +478,6 @@ def test_join_with_just_a_name():
         assert user.email is None
 
 
-def test_join_rejects_bad_code_and_taken_name():
-    client = TestClient(app)
-    assert "werkt niet meer" in client.get("/join/wrong").text
-    r = client.post("/join/wrong", data={"name": "X Y"})
-    assert r.status_code == 422 and "werkt niet meer" in r.text
-    join(TestClient(app), "Thijs de Boer")
-    with SessionLocal() as s:
-        from app import auth
-
-        code = auth.join_code(s)
-    r = client.post(f"/join/{code}", data={"name": "thijs de boer"})
-    assert r.status_code == 422 and "al in gebruik" in r.text
-
-
 def test_device_link_logs_in_second_device():
     laptop = join(TestClient(app), "Lotte Visser")
     page = laptop.post("/account/device-link").text
@@ -542,7 +497,10 @@ def test_add_email_needs_verification():
     body = mail.outbox[-1].get_content()
     assert mail.outbox[-1]["To"] == "milan@voorbeeld.nl"
     path = body.split("http://testserver")[1].split()[0]
-    client.post(path, follow_redirects=False)
+    assert path.startswith("/email/")
+    stranger = TestClient(app)
+    stranger.post(path)
+    assert stranger.get("/aangeboden", follow_redirects=False).status_code == 303  # no login
     with SessionLocal() as s:
         user = s.scalars(select(User).where(User.name == "Milan Jansen")).one()
         assert user.email == "milan@voorbeeld.nl"
@@ -558,13 +516,6 @@ def test_swap_between_people_without_email():
     assert "Bram Meijer neemt de volgende dienst over van Noor Smit" in page
     assert "Cc:" not in page
     assert mail.outbox == []  # nobody has an address, so no notification mails
-
-
-def test_mail_disabled_hides_email_login(monkeypatch):
-    settings = get_settings()
-    monkeypatch.setattr(settings, "dev_mode", False)
-    assert not settings.mail_enabled
-    assert 'name="email"' not in TestClient(app).get("/login").text
 
 
 # ---------------------------------------------------------------- optional shift details
@@ -824,3 +775,136 @@ def test_prefetch_does_not_eat_flash_messages(people):
     d.post("/plaatsen", data=data, follow_redirects=False)  # flash set, not shown yet
     d.get("/gezocht", headers={"X-Prefetch": "1"})
     assert "Geplaatst." in d.get("/aangeboden").text
+
+
+# ---------------------------------------------------------------- invite links and admin
+
+
+def _admin_client(name="Ad Min"):
+    admin = make_user(name, is_admin=True)
+    return admin, login(TestClient(app), admin)
+
+
+def _new_link(a_client, **data):
+    page = a_client.post("/beheer/links", data=data).text
+    return page.split('id="newlink" value="http://testserver')[1].split('"')[0]
+
+
+def test_join_rejects_bad_code_and_taken_name():
+    client = TestClient(app)
+    assert "werkt niet meer" in client.get("/join/wrong").text
+    r = client.post("/join/wrong", data={"name": "X Y"})
+    assert r.status_code == 422 and "werkt niet meer" in r.text
+    join(TestClient(app), "Thijs de Boer")
+    from app import auth
+
+    with SessionLocal() as s:
+        code = auth.main_link(s).code
+    r = client.post(f"/join/{code}", data={"name": "thijs de boer"})
+    assert r.status_code == 422 and "al in gebruik" in r.text
+
+
+def test_member_link_with_use_limit_and_revoke():
+    _, a = _admin_client()
+    path = _new_link(a, label="Lichting", role="member", max_uses="2", valid_days="")
+    for name in ["Een Lid", "Twee Lid"]:
+        assert (
+            TestClient(app).post(path, data={"name": name}, follow_redirects=False).status_code
+            == 303
+        )
+    r = TestClient(app).post(path, data={"name": "Drie Lid"})
+    assert r.status_code == 422 and "werkt niet meer" in r.text  # full
+    path2 = _new_link(a, label="Weg", role="member", max_uses="", valid_days="7")
+    with SessionLocal() as s:
+        link = s.scalars(select(InviteLink).where(InviteLink.label == "Weg")).one()
+        assert link.expires_at is not None and link.max_uses is None
+    a.post(f"/beheer/links/{link.id}/revoke")
+    assert "werkt niet meer" in TestClient(app).get(path2).text
+
+
+def test_expired_link_does_not_work():
+    _, a = _admin_client()
+    path = _new_link(a, label="Kort", role="member", max_uses="", valid_days="1")
+    with SessionLocal() as s:
+        link = s.scalars(select(InviteLink).where(InviteLink.label == "Kort")).one()
+        link.expires_at = utcnow() - timedelta(minutes=1)
+        s.commit()
+    assert "werkt niet meer" in TestClient(app).get(path).text
+
+
+def test_admin_link_is_single_use_one_day_and_makes_admin():
+    _, a = _admin_client()
+    path = _new_link(a, label="Nieuwe beheerder", role="admin", max_uses="50", valid_days="300")
+    with SessionLocal() as s:
+        link = s.scalars(select(InviteLink).where(InviteLink.role == "admin")).one()
+        assert link.max_uses == 1  # forced, whatever the form said
+        assert link.expires_at - utcnow() <= timedelta(hours=24)
+    newcomer = TestClient(app)
+    assert "Je wordt beheerder" in newcomer.get(path).text
+    newcomer.post(path, data={"name": "Nieuwe Baas"})
+    assert newcomer.get("/beheer").status_code == 200
+    assert "werkt niet meer" in TestClient(app).get(path).text  # used up
+
+
+def test_renewing_the_group_link():
+    from app import auth
+
+    _, a = _admin_client()
+    with SessionLocal() as s:
+        old = auth.main_link(s).code
+    join(TestClient(app), "Via Groep")  # counts as a use of the main link
+    a.post("/beheer/links/main")
+    assert "werkt niet meer" in TestClient(app).get(f"/join/{old}").text
+    with SessionLocal() as s:
+        new = auth.main_link(s)
+        assert new.code != old and new.uses == 0
+    assert "Hoe heet je" in TestClient(app).get(f"/join/{new.code}").text
+
+
+def test_members_cannot_use_beheer(people):
+    _, s_client = people["sanne"]
+    assert s_client.get("/beheer").status_code == 403
+    assert s_client.post("/beheer/links", data={"role": "admin"}).status_code == 403
+
+
+def test_admin_promotes_and_deletes_members(people):
+    sanne, s_client = people["sanne"]
+    daan, d_client = people["daan"]
+    noor, n_client = people["noor"]
+    admin, a = _admin_client()
+    a.post(f"/beheer/users/{sanne.id}/admin")
+    assert s_client.get("/beheer").status_code == 200
+    a.post(f"/beheer/users/{sanne.id}/admin")
+    assert s_client.get("/beheer").status_code == 403
+
+    listing = post_offer(d_client)
+    n_client.post(f"/listings/{listing.id}/react")
+    a.post(f"/beheer/users/{daan.id}/delete")
+    with SessionLocal() as s:
+        assert s.get(User, daan.id) is None and s.get(Listing, listing.id) is None
+    assert any("weggehaald" in t for t in notifications_for(noor))
+    assert d_client.get("/mijn", follow_redirects=False).status_code == 303
+
+    # an admin can't delete themselves here, and the last admin can't be demoted or deleted
+    a.post(f"/beheer/users/{admin.id}/delete")
+    a.post(f"/beheer/users/{admin.id}/admin")
+    with SessionLocal() as s:
+        assert s.get(User, admin.id).is_admin
+    r = a.post("/account/delete", data={"confirm": "verwijder"}, follow_redirects=True)
+    assert "enige beheerder" in r.text
+
+
+def test_admin_removes_someones_shift(people):
+    daan, d_client = people["daan"]
+    noor, n_client = people["noor"]
+    _, a = _admin_client()
+    listing = post_offer(d_client)
+    n_client.post(f"/listings/{listing.id}/react")
+    assert "Verwijderen (beheer)" in a.get("/aangeboden").text
+    assert "Verwijderen (beheer)" not in n_client.get("/aangeboden").text
+    a.post(f"/beheer/listings/{listing.id}/delete")
+    with SessionLocal() as s:
+        assert s.get(Listing, listing.id).status == ListingStatus.REMOVED
+    assert any("beheerder heeft je dienst" in t for t in notifications_for(daan))
+    assert any("weggehaald" in t for t in notifications_for(noor))
+    assert n_client.post(f"/beheer/listings/{listing.id}/delete").status_code == 403

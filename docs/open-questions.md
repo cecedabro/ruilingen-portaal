@@ -13,7 +13,7 @@ answered. Changing a default is usually a config value or a small change.
 | Several shifts per person? Limits? | No limit on reacting. Max **30 open listings** per person (anti-spam). | `MAX_OPEN_LISTINGS` in `app/services.py` |
 | Auto-accept the first reaction? | **No**: the owner always chooses (double confirmation). | Would be an option per listing. |
 | Past listings / history? | Hidden from the boards the day after; completed swaps stay in "Mijn ruilen". Everything is **deleted 6 weeks** after the shift date. | `RETENTION_DAYS` |
-| Who is admin? | Addresses in `ADMIN_EMAILS` (from OpenBao) + anyone they promote on `/beheer`. Admins can invite, block and promote. | |
+| Who is admin? | The first admin via `python -m app.cli admin-link`; then admins promote members or send a single-use admin link from Beheer. Admins manage links and members, and can delete shifts. | |
 | Planning read access? | **Only the emails**, as today. | A read-only planning account would be a later feature. |
 | Name/branding | Neutral **"Ruilingen"**, no employer name or logo. | `APP_NAME` |
 

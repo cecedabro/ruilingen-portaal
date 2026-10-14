@@ -213,3 +213,16 @@ header.top{view-transition-name:header}
 .tabbar{view-transition-name:tabbar}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.12s}
 @media (prefers-reduced-motion:reduce){ @view-transition{navigation:none} }
+
+/* beheer */
+.form:has(input[name=role][value=admin]:checked) .only-member,
+.form:has(input[name=role][value=member]:checked) .only-admin{display:none}
+.table tr.dim td{color:var(--muted)}
+.linkish.danger{color:var(--bad)}
+.shift .admin-del{margin-left:auto}
+.members{list-style:none;margin:0;padding:0;display:grid}
+.members li{display:grid;gap:4px;padding:10px 0;border-bottom:1px solid var(--line)}
+.members li:last-child{border-bottom:0}
+.mhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.mlast{margin-left:auto}
+.members .actions{gap:16px}

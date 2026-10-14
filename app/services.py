@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TypeVar
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, selectinload
 
@@ -572,3 +572,41 @@ def cleanup(db: Session, settings: Settings, today: date) -> None:
 
 def local_today(settings: Settings) -> date:
     return datetime.now(settings.tz).date()
+
+
+# ---------------------------------------------------------------- admin
+
+
+def _admin_count(db: Session) -> int:
+    return db.scalar(select(func.count(User.id)).where(User.is_admin.is_(True)))
+
+
+def delete_user(db: Session, target: User, *, actor: User) -> None:
+    """Delete an account and everything of it. Open listings are closed first, so the people
+    who reacted get told. The last admin can't be deleted (nobody could manage the app)."""
+    if target.is_admin and _admin_count(db) <= 1:
+        raise SwapError("Dit is de enige beheerder. Maak eerst iemand anders beheerder.")
+    for listing in db.scalars(select(Listing).where(Listing.user_id == target.id)):
+        if listing.status == ListingStatus.OPEN:
+            remove_listing(db, target, listing.id)
+    db.flush()
+    db.delete(target)
+
+
+def set_admin(db: Session, target: User, make_admin: bool) -> None:
+    if not make_admin and target.is_admin and _admin_count(db) <= 1:
+        raise SwapError("Dit is de enige beheerder; die kan geen gewoon lid worden.")
+    target.is_admin = make_admin
+
+
+def admin_remove_listing(db: Session, admin: User, listing_id: int) -> None:
+    """An admin takes down someone's open offer or request (misuse, mistakes)."""
+    listing = db.get(Listing, listing_id)
+    if listing is None or listing.status != ListingStatus.OPEN:
+        raise SwapError("Die dienst staat er niet (meer).")
+    if listing.user_id == admin.id:
+        remove_listing(db, admin, listing_id)
+        return
+    owner = listing.user
+    remove_listing(db, owner, listing_id)
+    notify(db, owner, f"Een beheerder heeft je dienst van {fmt_date(listing.date)} weggehaald.")

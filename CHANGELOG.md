@@ -14,6 +14,22 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.6.0 (2026-10-14)
+- Invite links: the main group-chat link (the existing one keeps working) plus extra links
+  admins create with an optional expiry and use limit, revocable; admin invite links are always
+  single-use and valid 24 hours. Beheer shows how often each link was used.
+- Members on Beheer: promote/demote, one-time login link, delete (account and all its data;
+  people who reacted to their open shifts are notified). "Block" is gone.
+- Admins can delete any open offer or request; the poster and reactors are notified.
+- The last admin can't be demoted or deleted.
+- No more email login (and no `ADMIN_EMAILS` bootstrap): joining is only through invite links.
+  Email stays optional, verified, and only for notifications; verifying doesn't log in.
+
+- **Schema change: yes** (`7e500a3621ae`: new `invite_links` table; the group link's code moves
+  from `app_settings` into it). Rolling back to 0.5.0 needs a database restore.
+- New secret keys: none (`ADMIN_EMAILS` is no longer read)
+- Manifest changes: none
+
 ## 0.5.0 (2026-10-14)
 - Instant navigation: the four tabs are prefetched and links swap the page in place (no
   reload); full page loads cross-fade (view transitions). Weggeven/Zoeken switches in place.

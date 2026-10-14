@@ -22,7 +22,7 @@ def main(argv: list[str]) -> int:
     settings = get_settings()
     with SessionLocal() as db:
         if argv[:1] == ["join-link"]:
-            print(auth.join_link(db, settings))
+            print(auth.link_url(settings, auth.main_link(db)))
             return 0
         if argv[:1] == ["set-list"] and len(argv) == 3 and argv[1] in services.DEFAULT_LISTS:
             print("\n".join(services.set_list(db, argv[1], argv[2].split(";"))))

@@ -41,6 +41,12 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
     con.commit()
     con.close()
 
+    alembic(db, "upgrade", "7308e71681ff")  # 0.2.0: the group link code lived in app_settings
+    con = sqlite3.connect(db)
+    con.execute("insert into app_settings(key, value) values('join_code', 'groep-code-123')")
+    con.commit()
+    con.close()
+
     alembic(db, "upgrade", "head")
 
     con = sqlite3.connect(db)
@@ -55,3 +61,7 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
         "insert into users(name,is_admin,is_active,email_notifications,session_epoch,created_at)"
         " values('Zonder Mail',0,1,1,0,'2026-10-01')"
     )
+    # the existing group-chat link keeps working as the main invite link
+    row = con.execute("select code, is_main, role from invite_links").fetchall()
+    assert row == [("groep-code-123", 1, "member")]
+    assert con.execute("select count(*) from app_settings where key='join_code'").fetchone()[0] == 0

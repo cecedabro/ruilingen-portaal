@@ -67,6 +67,12 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if user.is_admin and not mine and l.status == "open" %}
+    <form class="admin-del" method="post" action="/beheer/listings/{{ l.id }}/delete" data-confirm="Deze dienst van {{ l.user.name }} verwijderen? {{ l.user.first_name }} en wie reageerde krijgen bericht.">
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="linkish danger" type="submit">Verwijderen (beheer)</button>
+    </form>
+    {% endif %}
     {% if l.kind == "wanted" and not mine and not mine_r %}
     <details class="offer">
       <summary class="btn {{ 'secondary' if pending else 'primary' }}">Ik heb er een</summary>

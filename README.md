@@ -95,7 +95,7 @@ project (a FastAPI platform):
   (no separate JS build)
 - **SQLite** (one file; plenty for a group of colleagues). SQLAlchemy/SQLModel + Alembic migrations
 - Login via a **group join link + name** (email optional), sessions in a signed cookie
-- Outgoing email (magic links + notifications) via a transactional mail service free tier
+- Optional outgoing email (notifications only) via a transactional mail service free tier
   (e.g. Brevo or Resend). **Not** from the homelab itself (it would land in spam).
 - Dutch UI; code and repo in English
 
@@ -174,7 +174,8 @@ Changing the models: edit `app/models.py`, then
 - **Login with the least friction.** A join link (`/join/<code>`) is shared in the group chat:
   open it, type your name, done. The browser stays logged in (rolling one-year cookie). No email
   needed; trust-based like the group chat, while the code keeps strangers out (admins can rotate
-  it). Email is optional, verified, and adds mail notifications + email login. Other devices are
+  it), plus extra links with an expiry and/or use limit, and single-use 24-hour admin links.
+  Email is optional, verified, and only used for notifications (no email login). Other devices are
   linked with one-time links (from Account, or an admin). One-time links are stored hashed and
   need a click on a page first, so mail scanners can't burn them.
 - **Lean.** Server-rendered HTML, plain form POST → redirect, no JS framework, system fonts.

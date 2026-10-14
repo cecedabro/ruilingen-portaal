@@ -1,16 +1,100 @@
 {% extends "base.html" %}
 {% block title %}Beheer · {{ settings.app_name }}{% endblock %}
 {% block content %}
-<div class="form">
-  <h2>Uitnodigingslink</h2>
+{% if new_link %}
+<div class="form" id="nieuw">
+  <h2>Nieuwe link: {{ new_link[0].label }}</h2>
   <div class="copyrow">
-    <input id="joinlink" value="{{ join_url }}" readonly>
-    <button class="btn" type="button" data-copy="joinlink" hidden>Kopieer</button>
+    <input id="newlink" value="{{ new_link[1] }}" readonly>
+    <button class="btn" type="button" data-copy="newlink" hidden>Kopieer</button>
   </div>
-  <form method="post" action="/beheer/join-link" data-confirm="Nieuwe link maken? De oude stopt meteen met werken.">
-    <button class="linkish" type="submit">Nieuwe link (oude werkt dan niet meer)</button>
-  </form>
+  <p class="meta">{% if new_link[0].role == "admin" %}Wie deze link opent wordt <b>beheerder</b>. Eén keer bruikbaar, 24 uur geldig: stuur hem alleen naar die persoon.{% else %}{{ "Onbeperkt" if new_link[0].max_uses is none else new_link[0].max_uses ~ "×" }} te gebruiken, {{ "geen einddatum" if not new_link[0].expires_at else "geldig tot " ~ stamp(new_link[0].expires_at) }}.{% endif %}</p>
 </div>
+{% endif %}
+{% if user_link %}
+<div class="form">
+  <h2>Inloglink voor {{ user_link[0].name }}</h2>
+  <div class="copyrow">
+    <input id="userlink" value="{{ user_link[1] }}" readonly>
+    <button class="btn" type="button" data-copy="userlink" hidden>Kopieer</button>
+  </div>
+  <p class="meta">Voor een nieuwe of kwijtgeraakte telefoon. Eén keer bruikbaar, 24 uur geldig. Stuur hem alleen naar {{ user_link[0].name }} zelf.</p>
+</div>
+{% endif %}
+
+<section class="form" id="links">
+  <h2>Groepslink</h2>
+  <div class="copyrow">
+    <input id="mainlink" value="{{ main_url }}" readonly>
+    <button class="btn" type="button" data-copy="mainlink" hidden>Kopieer</button>
+  </div>
+  <p class="meta">Voor de beschrijving van de groepsapp. Altijd geldig, {{ main.uses }} {{ "persoon" if main.uses == 1 else "mensen" }} via deze link.</p>
+  <form method="post" action="/beheer/links/main" data-confirm="Nieuwe groepslink maken? De huidige stopt meteen met werken.">
+    <button class="linkish" type="submit">Nieuwe groepslink (bij misbruik)</button>
+  </form>
+</section>
+
+<form class="form" method="post" action="/beheer/links">
+  <h2>Extra uitnodiging</h2>
+  <div class="seg" role="radiogroup" aria-label="Voor wie">
+    <label><input type="radio" name="role" value="member" checked><span>Lid</span></label>
+    <label><input type="radio" name="role" value="admin"><span>Beheerder</span></label>
+  </div>
+  <div class="field"><label for="ll">Naam van de link <span class="opt">voor jezelf, bv. "nieuwe lichting"</span></label>
+    <input id="ll" name="label" maxlength="60"></div>
+  <div class="grid2 only-member">
+    <div class="field"><label for="lu">Hoe vaak <span class="opt">leeg = onbeperkt</span></label>
+      <input id="lu" name="max_uses" type="number" min="1" max="500" inputmode="numeric"></div>
+    <div class="field"><label for="ld">Dagen geldig <span class="opt">leeg = altijd</span></label>
+      <input id="ld" name="valid_days" type="number" min="1" max="366" inputmode="numeric"></div>
+  </div>
+  <p class="meta only-admin">Een beheerderslink werkt één keer en 24 uur.</p>
+  <div><button class="btn primary" type="submit">Maak link</button></div>
+</form>
+
+{% if links %}
+<section class="form">
+  <h2>Uitnodigingen</h2>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Link</th><th>Gebruikt</th><th>Geldig tot</th><th></th></tr></thead>
+    <tbody>
+    {% for l, url in links %}
+    <tr class="{{ 'dim' if l.status != 'actief' }}">
+      <td><b>{{ l.label }}</b>{% if l.role == "admin" %} <span class="pill ok">beheerder</span>{% endif %}<br><span class="meta">{{ l.status }}</span></td>
+      <td class="mono">{{ l.uses }}{% if l.max_uses %}/{{ l.max_uses }}{% endif %}</td>
+      <td class="meta">{{ stamp(l.expires_at) if l.expires_at else "–" }}</td>
+      <td>{% if l.status == "actief" %}<div class="actions">
+        <input id="lk{{ l.id }}" value="{{ url }}" readonly hidden>
+        <button class="linkish" type="button" data-copy="lk{{ l.id }}" hidden>Kopieer</button>
+        <form class="inline" method="post" action="/beheer/links/{{ l.id }}/revoke"><button class="linkish" type="submit">Intrekken</button></form>
+      </div>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="form" id="leden">
+  <h2>Leden ({{ users | length }})</h2>
+  <ul class="members">
+    {% for u in users %}
+    <li>
+      <div class="mhead">
+        <b>{{ u.name }}</b>{% if u.is_admin %}<span class="pill ok">beheerder</span>{% endif %}{% if u.id == user.id %}<span class="meta">jij</span>{% endif %}
+        <span class="meta mono mlast">{{ stamp(u.last_login_at or u.created_at) }}</span>
+      </div>
+      <div class="actions">
+        <form class="inline" method="post" action="/beheer/users/{{ u.id }}/admin"{% if u.id == user.id and u.is_admin %} data-confirm="Jezelf geen beheerder meer maken?"{% endif %}><button class="linkish" type="submit">{{ "Geen beheerder" if u.is_admin else "Maak beheerder" }}</button></form>
+        <form class="inline" method="post" action="/beheer/users/{{ u.id }}/link"><button class="linkish" type="submit">Inloglink</button></form>
+        {% if u.id != user.id %}<form class="inline" method="post" action="/beheer/users/{{ u.id }}/delete" data-confirm="{{ u.name }} verwijderen? Account, diensten en reacties zijn dan weg."><button class="linkish danger" type="submit">Verwijder</button></form>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
 
 <form class="form" method="post" action="/beheer/lijsten">
   <h2>Keuzelijsten</h2>
@@ -22,38 +106,4 @@
   </div>
   <div><button class="btn primary" type="submit">Opslaan</button></div>
 </form>
-
-{% if user_link %}
-<div class="form">
-  <h2>Inloglink voor {{ user_link[0].name }}</h2>
-  <div class="copyrow">
-    <input id="userlink" value="{{ user_link[1] }}" readonly>
-    <button class="btn" type="button" data-copy="userlink" hidden>Kopieer</button>
-  </div>
-  <p class="meta">Eén keer bruikbaar, 24 uur geldig. Stuur hem alleen naar {{ user_link[0].name }} zelf.</p>
-</div>
-{% endif %}
-
-<div class="form">
-  <h2>Collega's ({{ users | selectattr("is_active") | list | length }})</h2>
-  <div class="table-wrap">
-  <table class="table">
-    <thead><tr><th>Naam</th><th>E-mail</th><th>Laatst</th><th></th></tr></thead>
-    <tbody>
-    {% for u in users %}
-    <tr>
-      <td>{{ u.name }}{% if u.is_admin %} <span class="pill ok">beheer</span>{% endif %}{% if not u.is_active %} <span class="pill off">geblokkeerd</span>{% endif %}</td>
-      <td class="meta">{{ u.email or "–" }}</td>
-      <td class="mono meta">{{ stamp(u.last_login_at or u.created_at) }}</td>
-      <td>{% if u.id != user.id %}<div class="actions">
-        {% if u.is_active %}<form class="inline" method="post" action="/beheer/users/{{ u.id }}/link"><button class="linkish" type="submit">Inloglink</button></form>{% endif %}
-        <form class="inline" method="post" action="/beheer/users/{{ u.id }}/toggle"><button class="linkish" type="submit">{{ "Blokkeer" if u.is_active else "Activeer" }}</button></form>
-        <form class="inline" method="post" action="/beheer/users/{{ u.id }}/admin"><button class="linkish" type="submit">{{ "Geen beheer" if u.is_admin else "Beheerder" }}</button></form>
-      </div>{% endif %}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-</div>
 {% endblock %}

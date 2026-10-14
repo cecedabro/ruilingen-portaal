@@ -4,6 +4,7 @@
 <div class="form narrow">
 {% if valid %}
   <form method="post" class="field">
+    {% if link.role == "admin" %}<p class="flash ok">Je wordt beheerder van {{ settings.app_name }}.</p>{% endif %}
     <label for="name">Hoe heet je?</label>
     {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
     <div class="copyrow">
@@ -14,7 +15,7 @@
   <p class="meta">Je blijft ingelogd op dit apparaat. Geen e-mail of wachtwoord nodig.</p>
 {% else %}
   <h2>Deze link werkt niet meer</h2>
-  <p>Vraag de nieuwe link in de groepsapp.</p>
+  <p>Hij is verlopen, vol of ingetrokken. Vraag een nieuwe link in de groepsapp.</p>
 {% endif %}
 </div>
 {% endblock %}

@@ -43,7 +43,7 @@ spec:
             - name: DATABASE_URL
               value: sqlite:////data/ruilingen.db
             # Mail is optional: without it people join via the group link with just a name,
-            # and email login/notifications are hidden. To enable: set "smtp", uncomment the
+            # and the optional notification email is hidden. To enable: set "smtp", uncomment the
             # SMTP_* lines and put SMTP_USERNAME/SMTP_PASSWORD in OpenBao.
             - name: MAIL_BACKEND
               value: none

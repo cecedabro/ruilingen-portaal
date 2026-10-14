@@ -1,5 +1,4 @@
 import os
-import re
 import tempfile
 
 # Must be set before the app is imported: the engine is created at import time.
@@ -8,7 +7,6 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"
 os.environ["BASE_URL"] = "http://testserver"
 os.environ["MAIL_BACKEND"] = "console"
 os.environ["DEV_MODE"] = "true"  # console mail only counts as enabled in dev mode
-os.environ["ADMIN_EMAILS"] = "admin@voorbeeld.nl"
 os.environ["PLANNING_EMAIL"] = "planning@voorbeeld.nl"
 
 import pytest  # noqa: E402
@@ -44,10 +42,13 @@ def make_user(name: str, **kw) -> User:
 
 
 def login(client: TestClient, user: User) -> TestClient:
-    mail.outbox.clear()
-    client.post("/login", data={"email": user.email})
-    body = mail.outbox[-1].get_content()
-    path = re.search(r"http://testserver(/login/[^\s?]+)", body).group(1)
+    """Log a browser in as `user` with a one-time link (the way an admin would)."""
+    from app import auth
+    from app.config import get_settings
+
+    with SessionLocal() as s:
+        link = auth.make_link(s, get_settings(), s.get(User, user.id))
+    path = link.removeprefix("http://testserver")
     r = client.post(path, data={"next": ""}, follow_redirects=False)
     assert r.status_code == 303
     mail.outbox.clear()
@@ -58,7 +59,7 @@ def join(client: TestClient, name: str) -> TestClient:
     from app import auth
 
     with SessionLocal() as s:
-        code = auth.join_code(s)
+        code = auth.main_link(s).code
     r = client.post(f"/join/{code}", data={"name": name}, follow_redirects=False)
     assert r.status_code == 303, r.text
     return client

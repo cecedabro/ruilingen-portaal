@@ -24,7 +24,7 @@
 
 {% if settings.mail_enabled %}
 <form class="form" method="post" action="/account/email">
-  <div class="field"><label for="email">E-mail <span class="meta">(optioneel: meldingen per mail, inloggen op een nieuw apparaat)</span></label>
+  <div class="field"><label for="email">E-mail <span class="opt">optioneel, alleen voor meldingen per mail</span></label>
     <div class="copyrow">
       <input id="email" name="email" type="email" value="{{ user.email or '' }}" autocomplete="email">
       <button class="btn" type="submit">{{ "Wijzig" if user.email else "Koppel" }}</button>
@@ -38,7 +38,7 @@
     <form method="post" action="/account/device-link"><button class="btn" type="submit">Ander apparaat koppelen</button></form>
     <form method="post" action="/account/logout-everywhere" data-confirm="Overal uitloggen?"><button class="btn" type="submit">Overal uitloggen</button></form>
   </div>
-  {% if not user.email %}<p class="meta">Zonder e-mail kom je alleen terug via dit apparaat of een gekoppeld apparaat. Kwijt? Vraag een beheerder om een link.</p>{% endif %}
+  <p class="meta">Telefoon kwijt of nieuwe telefoon? Koppel hem hier vanaf een ander apparaat, of vraag een beheerder om een inloglink.</p>
 </div>
 
 <form class="form" method="post" action="/account/delete" data-confirm="Account en al je gegevens verwijderen?">

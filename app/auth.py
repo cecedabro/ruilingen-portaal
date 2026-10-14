@@ -1,13 +1,13 @@
-"""Who you are, with as little friction as possible.
+"""Who you are, with as little friction as possible, and only by invitation.
 
-- **Join link** (the normal way in): `/join/<code>` is shared in the group chat. Open it, type
-  your name, and this browser stays logged in (rolling cookie). No email, no password. The code
-  keeps strangers off the public site; admins can rotate it.
-- **One-time links**: "link another device" on /account, or an admin making one for a colleague
-  who lost their phone. Single use, short-lived, stored hashed.
-- **Email (optional)**: with a verified address you get mail notifications and can log in with a
-  mailed link. Such links open a page with a button first: mail scanners open every link in a
-  mail, and a GET that logs in would burn the token before the colleague clicks it.
+- **Invite links** are the only way in: `/join/<code>`, type your name, and this browser stays
+  logged in (rolling cookie). No email, no password, no list of addresses to keep. The main
+  link sits in the group chat description; admins can make extra links that expire and/or
+  have a use limit, and single-use 24-hour links that make the newcomer an admin.
+- **One-time login links**: "link another device" on /account, or an admin making one for a
+  colleague who lost their phone. Single use, short-lived, stored hashed, and they open a page
+  with a button first (mail/chat link previews must not burn them).
+- **Email (optional)** is only for notifications. Verifying an address does not log in.
 """
 
 import hashlib
@@ -16,15 +16,13 @@ from datetime import timedelta
 from urllib.parse import quote, urlparse
 
 from fastapi import Depends, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import get_db
-from app.models import AppSetting, LoginToken, User, utcnow
+from app.models import InviteLink, LoginToken, User, utcnow
 from app.services import QueuedMail, SwapError
-
-JOIN_CODE_KEY = "join_code"
 
 
 class LoginRequired(Exception):
@@ -47,31 +45,83 @@ def clean_name(name: str) -> str:
     return " ".join((name or "").split())[:60]
 
 
-# ---------------------------------------------------------------- join link
+# ---------------------------------------------------------------- invite links
+
+ADMIN_LINK_HOURS = 24
 
 
-def join_code(db: Session) -> str:
-    row = db.get(AppSetting, JOIN_CODE_KEY)
-    if row is None:
-        row = AppSetting(key=JOIN_CODE_KEY, value=secrets.token_urlsafe(9))
-        db.add(row)
+def main_link(db: Session) -> InviteLink:
+    """The permanent group-chat link (created on first use)."""
+    link = db.scalar(
+        select(InviteLink).where(InviteLink.is_main.is_(True), InviteLink.revoked_at.is_(None))
+    )
+    if link is None:
+        link = InviteLink(code=secrets.token_urlsafe(9), label="Groepsapp", is_main=True)
+        db.add(link)
         db.commit()
-    return row.value
+    return link
 
 
-def rotate_join_code(db: Session) -> str:
-    row = db.get(AppSetting, JOIN_CODE_KEY)
-    code = secrets.token_urlsafe(9)
-    if row is None:
-        db.add(AppSetting(key=JOIN_CODE_KEY, value=code))
-    else:
-        row.value = code
+def renew_main_link(db: Session, admin: User) -> InviteLink:
+    """New code for the group-chat link; the old one stops working immediately."""
+    old = main_link(db)
+    old.revoked_at = utcnow()
+    new = InviteLink(
+        code=secrets.token_urlsafe(9), label="Groepsapp", is_main=True, created_by_id=admin.id
+    )
+    db.add(new)
     db.commit()
-    return code
+    return new
 
 
-def join_link(db: Session, settings: Settings) -> str:
-    return f"{settings.base_url}/join/{join_code(db)}"
+def create_link(
+    db: Session,
+    admin: User,
+    *,
+    label: str,
+    role: str,
+    max_uses: int | None,
+    valid_days: int | None,
+) -> InviteLink:
+    if role == "admin":
+        # A leaked admin link must not hand out admin rights: always one person, one day.
+        max_uses, expires = 1, utcnow() + timedelta(hours=ADMIN_LINK_HOURS)
+    else:
+        role = "member"
+        if max_uses is not None and not 1 <= max_uses <= 500:
+            raise SwapError("Aantal keer gebruiken moet tussen 1 en 500 liggen.")
+        if valid_days is not None and not 1 <= valid_days <= 366:
+            raise SwapError("Geldigheid moet tussen 1 en 366 dagen liggen.")
+        expires = utcnow() + timedelta(days=valid_days) if valid_days else None
+    link = InviteLink(
+        code=secrets.token_urlsafe(9),
+        label=clean_name(label) or ("Beheerder" if role == "admin" else "Uitnodiging"),
+        role=role,
+        max_uses=max_uses,
+        expires_at=expires,
+        created_by_id=admin.id,
+    )
+    db.add(link)
+    db.commit()
+    return link
+
+
+def revoke_link(db: Session, link_id: int) -> None:
+    link = db.get(InviteLink, link_id)
+    if link is None or link.is_main:
+        raise SwapError("Die link kan niet worden ingetrokken.")
+    if link.revoked_at is None:
+        link.revoked_at = utcnow()
+        db.commit()
+
+
+def link_url(settings: Settings, link: InviteLink) -> str:
+    return f"{settings.base_url}/join/{link.code}"
+
+
+def usable_link(db: Session, code: str) -> InviteLink | None:
+    link = db.scalar(select(InviteLink).where(InviteLink.code == code))
+    return link if link is not None and link.status == "actief" else None
 
 
 def check_name(db: Session, name: str, exclude_id: int | None = None) -> str:
@@ -91,9 +141,20 @@ def check_name(db: Session, name: str, exclude_id: int | None = None) -> str:
 
 
 def join(db: Session, code: str, name: str) -> User:
-    if not secrets.compare_digest(code, join_code(db)):
-        raise SwapError("Deze link werkt niet meer. Vraag de nieuwe link in de groep.")
-    user = User(name=check_name(db, name))
+    link = usable_link(db, code)
+    if link is None:
+        raise SwapError("Deze link werkt niet meer. Vraag een nieuwe link in de groep.")
+    user = User(name=check_name(db, name), is_admin=link.role == "admin")
+    # Count the use atomically, so a link with 1 use left can't let two people in at once.
+    taken = db.execute(
+        update(InviteLink)
+        .where(InviteLink.id == link.id, InviteLink.revoked_at.is_(None))
+        .where(or_(InviteLink.max_uses.is_(None), InviteLink.uses < InviteLink.max_uses))
+        .values(uses=InviteLink.uses + 1)
+    ).rowcount
+    if taken != 1:
+        db.rollback()
+        raise SwapError("Deze link is net vol geraakt. Vraag een nieuwe link.")
     db.add(user)
     db.commit()
     return user
@@ -121,7 +182,7 @@ def make_link(
         )
     )
     db.commit()
-    link = f"{settings.base_url}/login/{raw}"
+    link = f"{settings.base_url}/{'email' if email else 'login'}/{raw}"
     if next_path:
         link += f"?next={quote(next_path, safe='/')}"
     return link
@@ -133,28 +194,6 @@ def _recent_mails(db: Session, user: User) -> int:
             LoginToken.user_id == user.id, LoginToken.created_at > utcnow() - timedelta(hours=1)
         )
     )
-
-
-def request_login(db: Session, settings: Settings, email: str, next_path: str = "") -> str | None:
-    """Mail a login link. Returns the link (for dev mode), or None when the address is unknown
-    or rate limited. The caller shows the same message either way, so the page doesn't reveal
-    who has an account."""
-    user = db.scalar(select(User).where(User.email == normalise_email(email)))
-    if user is None or not user.is_active or not settings.mail_enabled:
-        return None
-    if _recent_mails(db, user) >= settings.login_mails_per_hour:
-        return None
-    link = make_link(db, settings, user, next_path=next_path)
-    db.info.setdefault("mails", []).append(
-        QueuedMail(
-            user.email,
-            f"Inloggen bij {settings.app_name}",
-            f"Hoi {user.first_name},\n\nKlik om in te loggen:\n\n{link}\n\n"
-            f"De link werkt {settings.login_link_minutes} minuten en één keer.\n"
-            "Niet zelf aangevraagd? Dan kun je deze mail negeren.",
-        )
-    )
-    return link
 
 
 def request_email_change(db: Session, settings: Settings, user: User, email: str) -> str:
@@ -188,18 +227,27 @@ def find_token(db: Session, raw: str) -> LoginToken | None:
 
 
 def consume_token(db: Session, raw: str) -> User | None:
+    """Use a one-time login link (another device, or made by an admin)."""
     token = find_token(db, raw)
-    if token is None:
+    if token is None or token.email:
         return None
     token.used_at = utcnow()
-    user = token.user
-    user.last_login_at = utcnow()
-    if token.email and not db.scalar(
-        select(User.id).where(User.email == token.email, User.id != user.id)
-    ):
-        user.email = token.email
+    token.user.last_login_at = utcnow()
     db.commit()
-    return user
+    return token.user
+
+
+def verify_email(db: Session, raw: str) -> User | None:
+    """Confirm a notification address. Deliberately does NOT log anyone in."""
+    token = find_token(db, raw)
+    if token is None or not token.email:
+        return None
+    token.used_at = utcnow()
+    taken = db.scalar(select(User.id).where(User.email == token.email, User.id != token.user_id))
+    if not taken:
+        token.user.email = token.email
+    db.commit()
+    return None if taken else token.user
 
 
 # ---------------------------------------------------------------- session
