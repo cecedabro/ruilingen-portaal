@@ -234,6 +234,8 @@ def _return_shift(
             or own.id == listing.id
         ):
             raise UserError("Kies een van je eigen aangeboden diensten.")
+        if listing.kind == Kind.WANTED and own.date != listing.date:
+            raise UserError("Dit verzoek is voor één dag: kies een dienst van die dag.")
         return {
             "offer_listing_id": own.id,
             "offer_type": own.shift_type,

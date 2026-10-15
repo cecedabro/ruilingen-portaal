@@ -32,7 +32,8 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
     everything = board.open_listings(db, kind, today)
     ranks = board.posting_ranks(everything)
     posted_order = q.get("volgorde") == "geplaatst"
-    ordered = sorted(everything, key=lambda lst: ranks[lst.id]) if posted_order else everything
+    by_posting = sorted(everything, key=lambda lst: (lst.created_at, lst.id))
+    ordered = by_posting if posted_order else everything
     return render(
         request,
         "board.html",

@@ -36,7 +36,8 @@ cp .env.example .env
   belongs (rules in `app/services/`, pages in `app/templates/` + `app/web/routes/`).
 - Business rules raise `UserError` with a Dutch message; routes stay thin.
 - New behaviour gets a test in the matching `tests/test_<area>.py`.
-- Schema changes need a migration (see the architecture doc) and a `CHANGELOG.md` note.
+- Schema changes need a migration (see the architecture doc), regenerated schema docs
+  (`python -m scripts.dump_schema`) and a `CHANGELOG.md` note.
 - UI text is Dutch; code, comments and docs are English.
 - Keep it lean: no JavaScript framework, no external fonts/CDNs, server-rendered HTML.
 

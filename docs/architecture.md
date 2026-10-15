@@ -146,8 +146,9 @@ There are no passwords and no email login. Ways in:
 
 Colleagues care about order, so it's made unambiguous and enforced by the database:
 
-- **Posting rank (#1, #2, …)** on the boards is the order of `listings.created_at`,
-  computed over the whole board before filtering (`board.posting_ranks`).
+- **Posting rank (#1, #2, …)** on the boards is the order of `listings.created_at` among the
+  shifts of the same day, computed before filtering (`board.posting_ranks`), so a filter never
+  renumbers.
 - **Reactions** are ordered by `(created_at, id)`; the owner sees them as #1, #2, … but may
   pick any of them.
 - **One reaction per person per listing** is a partial unique index (`uq_reaction_pending`),
@@ -195,7 +196,9 @@ The schema is managed with Alembic (`migrations/`). The container runs
    replace `app.models.UTCDateTime()` by `sa.DateTime()` (migrations must not import the app)
    and add any data migration by hand.
 3. Extend `tests/test_migrations.py` if existing rows are transformed.
-4. Note it as a schema change in `CHANGELOG.md` (a rollback then needs a database restore).
+4. Run `.venv/bin/python -m scripts.dump_schema` and commit the regenerated `docs/schema.sql`
+   and `docs/erd.md` (a test fails if you forget).
+5. Note it as a schema change in `CHANGELOG.md` (a rollback then needs a database restore).
 
 SQLite can't alter most columns, so Alembic's batch mode rebuilds tables (copy → drop →
 rename). `migrations/env.py` turns foreign keys off for that, or dropping `users` would

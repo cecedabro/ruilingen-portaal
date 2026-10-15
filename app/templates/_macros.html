@@ -42,6 +42,8 @@
    can pick one of those instead of typing: the two blocks switch via data-source (app.js);
    the hidden one is disabled, so it is neither validated nor sent. #}
 {% macro proposal(l, next, label, primary, my_offers, halls, workplaces, with_date) -%}
+{#- A wanted request is for one day, so only your offers of that day fit; a swap offer takes any day. -#}
+{% if l.kind == "wanted" %}{% set my_offers = my_offers | selectattr("date", "equalto", l.date) | list %}{% endif %}
 <details class="offer">
   <summary class="btn {{ 'primary' if primary else 'secondary' }}">{{ label }}</summary>
   <form class="stack" method="post" action="/listings/{{ l.id }}/react" data-source="{{ 'own' if my_offers else 'typed' }}">
@@ -97,7 +99,7 @@
     {{ headline(l.info, [l.shift_type] if l.kind == "offer" else l.wanted_type_list, l.mode if l.is_swap else "") }}
     <div class="line2">
       <span class="who">
-        {% if rank %}<span class="rank" title="{{ rank }}e geplaatst">#{{ rank }}</span>{% endif %}
+        {% if rank %}<span class="rank" title="{{ rank }}e geplaatst voor deze dag">#{{ rank }}</span>{% endif %}
         <span>{{ "Jij" if mine else l.user.name }}</span>
         {% if mine %}<span class="status {{ 'wait' if n else 'idle' }}">{{ n }} {{ noun if n == 1 else nouns }}</span>
         {% elif mine_r %}<span class="status wait">{{ "voorgesteld" if mine_r.offer_type and l.kind == "offer" else "gereageerd" }}</span>

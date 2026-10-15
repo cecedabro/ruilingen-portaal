@@ -4,6 +4,11 @@ One SQLite file: `/data/ruilingen.db` in the cluster (Longhorn volume, backed up
 `./ruilingen.db` locally. Tables are defined in [`app/models.py`](../app/models.py) and
 changed only through Alembic migrations (see [architecture.md](architecture.md#data-changes-and-migrations)).
 
+**At a glance:** the diagram is in [erd.md](erd.md) and the complete SQL in
+[schema.sql](schema.sql). Both are generated from `app/models.py` (`python -m scripts.dump_schema`)
+and a test fails when they're out of date, so they always match the code. This page explains
+what each table and column is for.
+
 Conventions:
 - Timestamps are stored as UTC (`UTCDateTime`) and shown in Europe/Amsterdam.
 - Shift times are `"HH:MM"` strings; an end before the start means past midnight.
@@ -33,7 +38,7 @@ app_settings  (key/value, no relations)
 | `is_admin` | can use Beheer |
 | `is_active` | inactive users can't log in |
 | `session_epoch` | bumped by "log out everywhere"; cookies with an older value stop working |
-| `created_at`, `last_login_at` | |
+| `created_at` | when the account was made (we don't record logins) |
 
 ### `listings`: a shift on a board
 
@@ -51,7 +56,7 @@ app_settings  (key/value, no relations)
 | `hall`, `workplace` | offer: optional, chosen from the admin lists |
 | `note` | "opmerking", max 200 characters |
 | `status` | `open` → `taken` (owner confirmed a reaction) or `removed` |
-| `created_at` | posting time: decides the #1, #2 posting rank |
+| `created_at` | posting time: decides the #1, #2 posting rank among the shifts of the same day |
 | `closed_at` | when it became taken/removed |
 | `mail_sent_at`, `mail_sent_by_id` | someone said "Verstuurd" for the planning mail |
 

@@ -94,7 +94,6 @@
     <li>
       <div class="mhead">
         <b>{{ u.name }}</b>{% if u.is_admin %}<span class="pill ok">beheerder</span>{% endif %}{% if u.id == user.id %}<span class="meta">jij</span>{% endif %}
-        <span class="meta mono mlast">{{ stamp(u.last_login_at or u.created_at) }}</span>
       </div>
       <div class="actions">
         <form class="inline" method="post" action="/beheer/users/{{ u.id }}/admin"{% if u.id == user.id and u.is_admin %} data-confirm="Jezelf geen beheerder meer maken?"{% endif %}><button class="linkish" type="submit">{{ "Geen beheerder" if u.is_admin else "Maak beheerder" }}</button></form>

@@ -14,6 +14,21 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.10.0 (2026-10-15)
+- Posting order (#1, #2, …) is now counted per day: among the shifts for the same date.
+- "Ik heb er een" / "Ruil voorstellen" buttons show the pointer cursor on desktop (they showed
+  a text cursor).
+- On a wanted request, "Mijn aangeboden dienst" only lists your offers of that same day (also
+  enforced on the server). A swap offer still accepts a shift of any day.
+- Last login is no longer recorded: the column is dropped and Beheer no longer shows it.
+- Docs: the database as an ERD (docs/erd.md) and complete SQL (docs/schema.sql), generated from
+  the models by `python -m scripts.dump_schema`; a test keeps them up to date.
+
+- **Schema change: yes** (`6e7157523f57`: drops `users.last_login_at`; data-destroying by design).
+  Rolling back to 0.9.0 needs a database restore (the column would come back empty).
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.9.0 (2026-10-15)
 - Swaps (ruilen): when giving a shift away you choose Weggeven, Ruilen or Allebei, and can say
   what you'd like back (date range, types; optional). Others propose a swap with "Ruil

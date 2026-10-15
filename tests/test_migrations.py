@@ -78,3 +78,9 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
     # swaps: existing listings stay "give", and the earlier reply got its date (the request's)
     assert {r[0] for r in con.execute("select mode from listings")} == {"give"}
     assert con.execute("select offer_date from reactions").fetchone() == ("2026-12-03",)
+    # last login is no longer recorded: the column is gone, and rebuilding `users` (SQLite
+    # batch mode) didn't cascade-delete anything that belongs to a user
+    assert "last_login_at" not in [r[1] for r in con.execute("pragma table_info(users)")]
+    assert con.execute("select count(*) from users").fetchone()[0] == 2
+    assert con.execute("select count(*) from listings").fetchone()[0] == 3
+    assert con.execute("select count(*) from reactions").fetchone()[0] == 1

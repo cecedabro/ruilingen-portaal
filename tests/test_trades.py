@@ -190,3 +190,29 @@ def test_wish_validation(people):
         },
     )
     assert r.status_code == 422 and "einddatum van je wens" in r.text
+
+
+def test_wanted_reply_only_offers_shifts_of_the_same_day(people):
+    _, n = people["noor"]
+    _, s = people["sanne"]
+    n.post("/plaatsen", data={"kind": "wanted", "day": DAY.isoformat(), "codes": ["H"]})
+    with SessionLocal() as db:
+        wanted = db.scalars(select(Listing).where(Listing.kind == "wanted")).one()
+    same_day = post_offer(s, day=DAY, code="H")
+    other_day = post_offer(s, day=DAY + timedelta(days=1), code="G")
+
+    page = s.get("/gezocht").text  # the dropdown on a wanted request: same day only
+    assert f'value="{same_day.id}"' in page and f'value="{other_day.id}"' not in page
+
+    r = s.post(
+        f"/listings/{wanted.id}/react",
+        data={"offer_listing_id": str(other_day.id)},
+        follow_redirects=True,
+    )
+    assert "voor één dag" in r.text and reactions(wanted.id) == []
+
+    # a swap offer, on the other hand, can be answered with a shift of any day
+    target = post_offer(people["daan"][1], mode="trade", day=DAY + timedelta(days=2))
+    assert f'value="{other_day.id}"' in s.get("/aangeboden").text
+    s.post(f"/listings/{target.id}/react", data={"offer_listing_id": str(other_day.id)})
+    assert reactions(target.id)[0].offer_listing_id == other_day.id

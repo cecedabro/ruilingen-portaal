@@ -4,7 +4,7 @@ A small web app where front-of-house colleagues swap shifts, instead of a busy W
 Live at **https://ruilingen.app** (a pilot on a home server: if it's down, use the group chat).
 
 - **Aangeboden / Gezocht:** shifts given away and shifts people look for, with who posted
-  first (#1, #2, …), filters by type, day, dagdeel, zaal and availability.
+  first for that day (#1, #2, …), filters by type, day, dagdeel, zaal and availability.
 - **Giving away or swapping:** a shift can be given away, swapped ("ruil": you say what you'd
   like back, others propose one of their shifts), or both.
 - **Reacting and confirming:** anyone can react; the poster sees reactions in order and picks
@@ -23,6 +23,7 @@ Dutch UI; code and docs in English. Made-up example data only in this public rep
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | how it works: code map, request flow, login and security, concurrency, migrations |
 | [docs/database.md](docs/database.md) | every table and column, status flows, retention |
+| [docs/erd.md](docs/erd.md), [docs/schema.sql](docs/schema.sql) | the database as a diagram and as SQL (generated from the models) |
 | [deploy/README.md](deploy/README.md) | how it runs on the homelab cluster and how releases deploy |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | local setup, conventions, how changes get merged |
 | [CHANGELOG.md](CHANGELOG.md) | releases, with schema/secret/manifest notes |

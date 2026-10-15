@@ -67,7 +67,6 @@ def consume_login(db: Session, raw: str) -> User | None:
     if token is None or token.email:
         return None
     token.used_at = utcnow()
-    token.user.last_login_at = utcnow()
     db.commit()
     return token.user
 

@@ -50,10 +50,14 @@ def my_open_offers(db: Session, user: User, today: date) -> list[Listing]:
 
 
 def posting_ranks(listings: list[Listing]) -> dict[int, int]:
-    """#1, #2, ...: order of posting over the whole board (colleagues care who was first).
-    Computed before filtering, so a filter never changes someone's number."""
-    by_posting = sorted(listings, key=lambda lst: (lst.created_at, lst.id))
-    return {lst.id: rank for rank, lst in enumerate(by_posting, start=1)}
+    """#1, #2, ...: order of posting among the shifts of the same day (colleagues care who was
+    first for *their* day). Computed before filtering, so a filter never changes a number."""
+    seen_per_day: dict[date, int] = {}
+    ranks = {}
+    for lst in sorted(listings, key=lambda lst: (lst.created_at, lst.id)):
+        seen_per_day[lst.date] = seen_per_day.get(lst.date, 0) + 1
+        ranks[lst.id] = seen_per_day[lst.date]
+    return ranks
 
 
 def my_listings(db: Session, user: User, today: date) -> list[Listing]:

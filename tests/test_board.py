@@ -36,20 +36,28 @@ def test_board_filters(people):
     assert shown(s_client, "?soort=X&dagdeel=nacht") == {"a", "b", "c"}  # junk is ignored
 
 
-def test_posting_order_is_visible(people):
+def test_posting_order_is_per_day(people):
+    from app.services.board import posting_ranks
+
     _, d = people["daan"]
     _, n = people["noor"]
-    offer(d, 9, "H", note="first-posted")
-    offer(n, 2, "G", note="second-posted")
+    offer(d, 9, "H", note="other-day")  # posted first, but on a different day
+    offer(n, 2, "G", note="first-on-day")
+    offer(d, 2, "HG", note="second-on-day")
     _, s_client = people["sanne"]
     page = s_client.get("/aangeboden").text
-    # by date: the later shift comes last, but still carries #1
-    assert page.index("second-posted") < page.index("first-posted")
-    assert page.index("#2") < page.index("#1")
-    page = s_client.get("/aangeboden?volgorde=geplaatst").text
-    assert page.index("first-posted") < page.index("second-posted")
-    # filtering doesn't renumber
-    assert "#2" in s_client.get("/aangeboden?soort=G").text
+    # by date: the day with two shifts comes first, numbered #1 then #2; the lone shift on
+    # the other day is #1 again, even though it was posted before both
+    assert page.index("first-on-day") < page.index("second-on-day") < page.index("other-day")
+    assert page.count(">#1<") == 2 and page.count(">#2<") == 1
+    assert page.index(">#1<") < page.index(">#2<") < page.rindex(">#1<")
+    page = s_client.get("/aangeboden?volgorde=geplaatst").text  # flat list, oldest posting first
+    assert page.index("other-day") < page.index("first-on-day") < page.index("second-on-day")
+    assert ">#2<" in s_client.get("/aangeboden?soort=HG").text  # filtering doesn't renumber
+
+    with SessionLocal() as db:
+        ranks = posting_ranks(list(db.scalars(select(Listing))))
+    assert sorted(ranks.values()) == [1, 1, 2]
 
 
 def test_board_is_ordered_by_shift_date_and_time(people):

@@ -91,7 +91,6 @@ class User(Base):
     # Bumped on "log out everywhere": every cookie with an older epoch stops working.
     session_epoch: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
-    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
     @property
     def first_name(self) -> str:
