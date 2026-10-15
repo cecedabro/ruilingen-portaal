@@ -5,6 +5,8 @@ Live at **https://ruilingen.app** (a pilot on a home server: if it's down, use t
 
 - **Aangeboden / Gezocht:** shifts given away and shifts people look for, with who posted
   first (#1, #2, …), filters by type, day, dagdeel, zaal and availability.
+- **Giving away or swapping:** a shift can be given away, swapped ("ruil": you say what you'd
+  like back, others propose one of their shifts), or both.
 - **Reacting and confirming:** anyone can react; the poster sees reactions in order and picks
   one. When it's confirmed, a ready-made email to planning is one tap away (sent from the
   colleague's own mail app, from an admin-editable template).

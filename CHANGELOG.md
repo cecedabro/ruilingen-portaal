@@ -10,7 +10,19 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - **Manifest changes**: must be made in the homelab repo (`apps/ruilingen/`) as well.
 
 ## Unreleased
-- Schema change: none
+- Swaps (ruilen): when giving a shift away you choose Weggeven, Ruilen or Allebei, and can say
+  what you'd like back (date range, types; optional). Others propose a swap with "Ruil
+  voorstellen": type in the shift they give back, or pick one of their own offered shifts
+  (which is taken down when the swap is confirmed). Proposals outside the wish are allowed
+  and get a "buiten je wens" note. The orange "ruil" / "ruil of weg" label shows it on the board.
+- Completed swaps show both shifts on Mijn, and the email to planning lists both (own,
+  admin-editable template for swaps).
+- The "vandaag/morgen" label is gone from the shift cards.
+- The demo data now includes swap offers and proposals.
+
+- **Schema change: yes** (`aeb3cc50550f`: `listings.mode/want_from/want_to/want_types`,
+  `reactions.offer_date/offer_listing_id`; existing rows become "give" and earlier replies get
+  their date). Rolling back to 0.8.0 needs a database restore.
 - New secret keys: none
 - Manifest changes: none
 

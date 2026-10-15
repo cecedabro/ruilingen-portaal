@@ -163,12 +163,25 @@ Colleagues care about order, so it's made unambiguous and enforced by the databa
 This is why the app runs as **exactly one process** (one replica, one uvicorn worker): SQLite
 on a single volume, and the housekeeping loop running inside it.
 
+## Swaps (ruilen)
+
+An offer has a `mode`: **give** (anyone can take it), **trade** (a reaction must carry a shift
+back) or **both**. A swap offer can say what the poster would like back (a date range and/or
+types); that's a hint only, a proposal outside it is allowed and the owner sees a small
+"buiten je wens" note. The reactor types the returned shift in (including its date) or picks one
+of their own open offers (`offer_listing_id`); in that case that offer is taken down when the
+owner confirms. Confirming works exactly as for a plain reaction (one conditional UPDATE,
+so it can't happen twice), and `listings.Deal.return_shift` carries the second shift to "Mijn"
+and to the planning mail. A swap proposal is still a reaction: it's ordered by time, shows up
+in "Mijn" for the owner and is the one event that sends an email.
+
 ## The email to planning
 
-When a swap is confirmed, "Mijn" shows a ready-made email (`services/planning.py`): **To**
+When a swap (or give-away) is confirmed, "Mijn" shows a ready-made email (`services/planning.py`): **To**
 planning (`PLANNING_EMAIL`), **Cc** both colleagues if they have an address, subject and body
-from a template. Admins edit the template on Beheer with placeholders such as `{gever}`,
-`{nemer}`, `{datum}`, `{details}`. The app doesn't send it: **Mail naar planning** opens the
+from a template. Admins edit the templates on Beheer (one for a shift given away, one for a real swap with
+two shifts) with placeholders such as `{gever}`, `{nemer}`, `{datum}`, `{details}` and, for a
+swap, `{datum_terug}`, `{details_terug}`. The app doesn't send it: **Mail naar planning** opens the
 colleague's own mail app with everything filled in (a `mailto:` link), so planning keeps
 getting it from a colleague. **Verstuurd** records that it was sent and tells the other one.
 

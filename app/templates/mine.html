@@ -12,17 +12,27 @@
       Open until someone has mailed planning. -#}
   <details class="shift deal" id="l{{ l.id }}" {% if not l.mail_sent_at %}open{% endif %}>
     <summary>
-      {{ m.headline(deal.shift, [deal.shift.code]) }}
+      {{ m.headline(deal.shift, [deal.shift.code], "trade" if deal.return_shift else "") }}
       <div class="line2">
         <span class="who">
-          <span>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}</span>
+          {% if deal.return_shift %}<span>Jij ruilt met {{ deal.taker.name if deal.giver.id == user.id else deal.giver.name }}</span>
+          {% else %}<span>{{ "Jij neemt" if deal.taker.id == user.id else deal.taker.name ~ " neemt" }} over van {{ "jou" if deal.giver.id == user.id else deal.giver.name }}</span>{% endif %}
           <span class="status ok">{{ "gemaild" if l.mail_sent_at else "rond" }}</span>
         </span>
         <span class="chev" aria-hidden="true"></span>
       </div>
     </summary>
     <div class="more">
+      {% if deal.return_shift %}
+      <div class="swapped">
+        <div><span class="meta">{{ "Jij geeft" if deal.giver.id == user.id else deal.giver.name ~ " geeft" }}</span> <b>{{ m.day_label(deal.shift.day) }}</b> <span class="meta">{{ m.time_label(deal.shift) }}</span> {{ m.code(deal.shift.code) }}</div>
+        {{ m.facts(deal.shift) }}
+        <div><span class="meta">{{ "Jij geeft" if deal.taker.id == user.id else deal.taker.name ~ " geeft" }}</span> <b>{{ m.day_label(deal.return_shift.day) }}</b> <span class="meta">{{ m.time_label(deal.return_shift) }}</span> {{ m.code(deal.return_shift.code) }}</div>
+        {{ m.facts(deal.return_shift) }}
+      </div>
+      {% else %}
       {{ m.facts(deal.shift) }}
+      {% endif %}
       {% if l.mail_sent_at %}
       <p class="meta">Planning gemaild door {{ l.mail_sent_by.name if l.mail_sent_by else "een van jullie" }}, {{ stamp(l.mail_sent_at) }}.</p>
       {% else %}
@@ -52,7 +62,15 @@
           <span class="rank">#{{ loop.index }}</span><b>{{ r.user.name }}</b>
           <span class="meta mono">{{ stamp(r.created_at) }}</span>
         </div>
-        {% if r.offer_type %}<div class="meta">biedt {{ m.code(r.offer_type) }} {{ r.offer_info.when }}{% if r.offer_info.where %} · {{ r.offer_info.where }}{% endif %}</div>{% endif %}
+        {% if r.offer_type %}
+        {% set back = r.offer_info %}
+        <div class="offered">
+          <span class="meta">{{ "biedt in ruil" if l.kind == "offer" else "biedt" }}</span>
+          <b>{{ m.day_label(back.day) }}</b> <span class="meta">{{ m.time_label(back) }}</span> {{ m.code(back.code) }}
+          {% if back.where %}<span class="meta">· {{ back.where }}</span>{% endif %}
+          {% if l.kind == "offer" and not l.wish_matches(back) %}<span class="hint">buiten je wens</span>{% endif %}
+        </div>
+        {% endif %}
         <div class="actions">
           <form class="inline" method="post" action="/reactions/{{ r.id }}/accept"><button class="btn ok" type="submit">Bevestigen</button></form>
           <form class="inline" method="post" action="/reactions/{{ r.id }}/decline"><button class="btn" type="submit">Nee</button></form>
@@ -66,9 +84,9 @@
       </form>
     </div>
     {% endset %}
-    {{ m.shift(l, user, next="/mijn", extra=extra, open=pending | length > 0) }}
+    {{ m.shift(l, user, next="/mijn", extra=extra, open=pending | length > 0, my_offers=my_offers) }}
   {% else %}
-    {{ m.shift(l, user, next="/mijn") }}
+    {{ m.shift(l, user, next="/mijn", my_offers=my_offers) }}
   {% endif %}
 {% endfor %}
 </div>

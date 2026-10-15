@@ -23,6 +23,7 @@ def _page(request: Request, db: Session, user: User, **ctx):
     settings = get_settings()
     main = invites.main_link(db)
     subject, body = planning.template(db)
+    trade_subject, trade_body = planning.template(db, trade=True)
     return render(
         request,
         "admin.html",
@@ -36,6 +37,8 @@ def _page(request: Request, db: Session, user: User, **ctx):
         workplaces=appdata.get_list(db, "workplaces"),
         mail_subject=subject,
         mail_body=body,
+        trade_subject=trade_subject,
+        trade_body=trade_body,
         placeholders=planning.PLACEHOLDERS,
         demo_count=len(demo.demo_user_ids(db)),
         **ctx,
@@ -202,15 +205,18 @@ def save_mail_template(
     request: Request,
     subject: str = Form(""),
     body: str = Form(""),
+    trade_subject: str = Form(""),
+    trade_body: str = Form(""),
     reset: str = Form(""),
     user=Depends(require_admin),
     db=Depends(get_db),
 ):
     if reset:
-        planning.reset_template(db)
+        planning.reset_templates(db)
         flash(request, "Standaardmail teruggezet.")
     else:
         planning.save_template(db, subject, body)
+        planning.save_template(db, trade_subject, trade_body, trade=True)
         flash(request, "Mail opgeslagen.")
     return redirect("/beheer#mail")
 

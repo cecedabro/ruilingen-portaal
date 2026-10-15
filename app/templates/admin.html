@@ -113,6 +113,11 @@
     <input id="ms" name="subject" maxlength="200" value="{{ mail_subject }}"></div>
   <div class="field"><label for="mb">Tekst</label>
     <textarea id="mb" name="body" rows="12" class="mono-area">{{ mail_body }}</textarea></div>
+  <h2 style="margin-top:4px">Bij een ruil (twee diensten)</h2>
+  <div class="field"><label for="ts">Onderwerp</label>
+    <input id="ts" name="trade_subject" maxlength="200" value="{{ trade_subject }}"></div>
+  <div class="field"><label for="tb">Tekst</label>
+    <textarea id="tb" name="trade_body" rows="14" class="mono-area">{{ trade_body }}</textarea></div>
   <details class="placeholders">
     <summary>Invulvelden</summary>
     <dl>{% for key, what in placeholders.items() %}<div><dt><code>{{ "{" ~ key ~ "}" }}</code></dt><dd>{{ what }}</dd></div>{% endfor %}</dl>

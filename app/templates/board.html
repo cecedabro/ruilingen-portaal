@@ -35,7 +35,7 @@
 </form>
 {% if items %}
 <div class="list">
-  {% for l in items %}{{ m.shift(l, user, next=here, rank=ranks[l.id], halls=halls, workplaces=workplaces) }}{% endfor %}
+  {% for l in items %}{{ m.shift(l, user, next=here, rank=ranks[l.id], halls=halls, workplaces=workplaces, my_offers=my_offers) }}{% endfor %}
 </div>
 {% else %}
 <div class="empty">{% if flt.active %}Niks met deze filters. <a href="{{ path }}">Wis filters</a>{% else %}Niks. <a href="/plaatsen{{ '?soort=gezocht' if kind == 'wanted' }}">Plaats er een</a>{% endif %}</div>

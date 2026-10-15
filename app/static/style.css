@@ -11,6 +11,7 @@
   --nav:#1f2a37; --nav-ink:#fff;
   --accent:#0b6e7a; --accent-ink:#fff; --accent-soft:#e2f1f2; --accent-line:#b9dde0;
   --ok:#1f7a4d; --ok-bg:#e3f3ea; --warn:#8a5a00; --warn-bg:#fbf0d9; --bad:#a3352e; --bad-bg:#fbe7e5;
+  --swap:#e8a33d; --swap-ink:#7a4c00; --swap-bg:#fff6e5;
   --shadow:0 1px 2px rgba(16,24,40,.05);
   --f-body:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --f-mono:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -23,6 +24,7 @@
   --nav:#0a0e13; --nav-ink:#e6e9ed;
   --accent:#4fbfca; --accent-ink:#06282c; --accent-soft:#15323a; --accent-line:#24525a;
   --ok:#5fc996; --ok-bg:#163326; --warn:#f0c46b; --warn-bg:#3a2d12; --bad:#ec8a82; --bad-bg:#3a1c1a;
+  --swap:#e8a33d; --swap-ink:#f0c46b; --swap-bg:#2f2610;
   --shadow:none;
   color-scheme:dark;
 }
@@ -111,7 +113,8 @@ header.top .wrap{padding-bottom:0}
 .who{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-width:0;font-size:14px;color:var(--ink-2)}
 .rank{font-size:11px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:var(--accent);
   border:1px solid var(--accent-line);border-radius:5px;padding:2px 4px}
-.soon{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:999px}
+.swap-label{display:inline-block;font-size:12px;font-weight:700;line-height:1;padding:4px 8px;border-radius:999px;
+  color:var(--swap-ink);border:1.5px solid var(--swap);background:var(--surface)}
 .chev{flex:none;width:8px;height:8px;margin-right:4px;border:solid var(--muted);border-width:0 2px 2px 0;
   transform:rotate(-45deg);transition:transform .15s}
 .shift[open]>summary .chev{transform:rotate(45deg)}
@@ -123,6 +126,10 @@ header.top .wrap{padding-bottom:0}
 .facts dd{margin:0;color:var(--ink-2);overflow-wrap:anywhere}
 
 .act{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.act details.offer[open]{flex:1 1 100%}
+.want{padding:8px 10px;border-radius:var(--r-sm);background:var(--swap-bg);color:var(--ink-2);font-size:13px}
+.want b{color:var(--swap-ink)}
+.hint{font-size:12px;font-weight:600;color:var(--warn)}
 .status{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:600;text-decoration:none}
 .status.wait{background:var(--warn-bg);color:var(--warn)}
 .status.idle{background:var(--surface-2);color:var(--muted)}
@@ -203,6 +210,8 @@ input[type=checkbox]{width:18px;height:18px;min-height:0;accent-color:var(--acce
 .seg input:checked+span{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.1)}
 .seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 .form[data-kind="offer"] .only-wanted,.form[data-kind="wanted"] .only-offer{display:none}
+[data-source="own"] .only-typed,[data-source="typed"] .only-own{display:none}
+.form:has(input[name=mode][value=give]:checked) .only-trade{display:none}
 .form:has(input[name=role][value=admin]:checked) .only-member,
 .form:has(input[name=role][value=member]:checked) .only-admin{display:none}
 
@@ -286,3 +295,9 @@ header.top{view-transition-name:header}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.12s}
 @media (prefers-reduced-motion:reduce){ @view-transition{navigation:none} }
 @media (max-width:360px){ .day{font-size:16px} .time{margin-left:6px;font-size:13px} }
+
+/* swaps: what a reactor offers (owner's list) and the two shifts of a completed swap */
+.offered{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:14px}
+.swapped{display:grid;gap:6px;font-size:14px}
+.swapped>div:not(.facts){display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px}
+.swapped .facts{margin-bottom:6px}

@@ -61,11 +61,19 @@ def post_submit(
     daypart: str = Form(""),  # wanted only
     hall: str = Form(""),
     workplace: str = Form(""),
+    mode: str = Form("give"),  # offer: give / trade / both
+    want_from: str = Form(""),  # trade: what the poster would like back (all optional)
+    want_to: str = Form(""),
+    want_types: list[str] = Form([]),
     note: str = Form(""),
     user=Depends(require_user),
     db=Depends(get_db),
 ):
     form = dict(
+        mode=mode,
+        want_from=want_from,
+        want_to=want_to,
+        want_types=want_types,
         day=day,
         code=code,
         codes=codes,
@@ -94,6 +102,10 @@ def post_submit(
                 end=end,
                 hall=hall,
                 workplace=workplace,
+                mode=mode,
+                want_from=want_from,
+                want_to=want_to,
+                want_types=want_types,
             )
         else:
             listing = run_write(
@@ -122,7 +134,9 @@ def react(
     background: BackgroundTasks,
     listing_id: int,
     next: str = Form(""),
-    offer_type: str | None = Form(None),  # only for a wanted request: the shift you offer
+    offer_type: str | None = Form(None),  # wanted request / swap: the shift you give back
+    offer_date: str | None = Form(None),  # swap only (a wanted reply uses the request's date)
+    offer_listing_id: str = Form(""),  # ...or pick one of your own open offers
     offer_start: str | None = Form(None),
     offer_end: str | None = Form(None),
     offer_hall: str | None = Form(None),
@@ -139,6 +153,8 @@ def react(
         listing_id,
         today=_today(),
         offer_type=offer_type,
+        offer_date=offer_date,
+        offer_listing_id=int(offer_listing_id) if offer_listing_id.isdigit() else None,
         offer_start=offer_start,
         offer_end=offer_end,
         offer_hall=offer_hall,

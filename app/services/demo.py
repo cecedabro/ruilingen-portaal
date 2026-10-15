@@ -75,8 +75,17 @@ def seed(db: Session, today: date, *, rng: random.Random | None = None) -> int:
     db.flush()
 
     listings = []
-    for i in range(16):  # offers
+    for i in range(16):  # offers: most are given away, a few want a shift back
         start, end = rng.choice(TIMES)
+        mode = "give" if i % 4 else ("trade" if i % 8 == 0 else "both")
+        wish = {}
+        if mode != "give":
+            first = today + timedelta(days=rng.randint(2, 8))
+            wish = {
+                "want_from": first,
+                "want_to": first + timedelta(days=3),
+                "want_types": ",".join(rng.sample(OFFER_TYPES, 2)),
+            }
         listings.append(
             Listing(
                 kind=Kind.OFFER,
@@ -85,6 +94,8 @@ def seed(db: Session, today: date, *, rng: random.Random | None = None) -> int:
                 start=start,
                 end=end,
                 shift_type=rng.choice(OFFER_TYPES),
+                mode=mode,
+                **wish,
                 hall=rng.choice(halls) if halls and rng.random() < 0.8 else None,
                 workplace=rng.choice(workplaces) if workplaces and rng.random() < 0.6 else None,
                 note=rng.choice(NOTES),
@@ -107,14 +118,26 @@ def seed(db: Session, today: date, *, rng: random.Random | None = None) -> int:
     db.flush()
 
     # A few offers already have reactions, so "1 reactie · wacht op …" shows up too.
-    for listing in rng.sample([lst for lst in listings if lst.kind == Kind.OFFER], 5):
+    offers = [lst for lst in listings if lst.kind == Kind.OFFER]
+    swaps = [lst for lst in offers if lst.mode == "trade"]
+    for listing in swaps + rng.sample([lst for lst in offers if lst not in swaps], 4):
         others = [u for u in users if u.id != listing.user_id]
         for reactor in rng.sample(others, rng.randint(1, 2)):
+            back = {}
+            if listing.mode == "trade":  # a swap proposal carries the shift offered in return
+                start, end = rng.choice(TIMES)
+                back = {
+                    "offer_type": rng.choice(OFFER_TYPES),
+                    "offer_start": start,
+                    "offer_end": end,
+                    "offer_date": today + timedelta(days=rng.randint(2, 10)),
+                }
             db.add(
                 Reaction(
                     listing_id=listing.id,
                     user_id=reactor.id,
                     created_at=listing.created_at + timedelta(minutes=rng.randint(5, 600)),
+                    **back,
                 )
             )
 

@@ -36,6 +36,19 @@ def open_listings(db: Session, kind: Kind, today: date) -> list[Listing]:
     return items
 
 
+def my_open_offers(db: Session, user: User, today: date) -> list[Listing]:
+    """The user's own open offers: shifts they can put forward in a swap proposal."""
+    stmt = select(Listing).where(
+        Listing.user_id == user.id,
+        Listing.kind == Kind.OFFER,
+        Listing.status == ListingStatus.OPEN,
+        Listing.date >= today,
+    )
+    items = list(db.scalars(stmt))
+    items.sort(key=lambda lst: (lst.date, lst.info.sort_key))
+    return items
+
+
 def posting_ranks(listings: list[Listing]) -> dict[int, int]:
     """#1, #2, ...: order of posting over the whole board (colleagues care who was first).
     Computed before filtering, so a filter never changes someone's number."""
@@ -168,7 +181,7 @@ def nav_counts(db: Session, user: User, today: date) -> NavCounts:
     )
     todo = db.scalar(
         select(func.count(Reaction.id))
-        .join(Listing)
+        .join(Listing, Reaction.listing_id == Listing.id)
         .where(Listing.user_id == user.id, Reaction.status == ReactionStatus.PENDING, *open_now)
     )
     unread = db.scalar(

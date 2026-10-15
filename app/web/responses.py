@@ -2,7 +2,7 @@
 
 import hashlib
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import BackgroundTasks, Request
@@ -47,10 +47,9 @@ def _stamp(dt: datetime) -> str:
     return fmt_stamp(dt.astimezone(tz), datetime.now(tz))
 
 
-def _relative_day(day: date) -> str:
-    """'vandaag' / 'morgen' for the date tile, '' otherwise."""
-    delta = (day - get_settings().today()).days
-    return {0: "vandaag", 1: "morgen"}.get(delta, "")
+def _today_iso() -> str:
+    """Today in the venue's timezone, for date inputs' `min` (macros can't see page variables)."""
+    return get_settings().today().isoformat()
 
 
 templates.env.globals.update(
@@ -61,7 +60,7 @@ templates.env.globals.update(
     fmt_date=fmt_date,
     fmt_date_long=fmt_date_long,
     stamp=_stamp,
-    relative_day=_relative_day,
+    today_iso=_today_iso,
     DAYS=DAYS,
     MONTHS=MONTHS,
     static_v=static_version(),

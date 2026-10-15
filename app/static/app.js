@@ -36,6 +36,16 @@ function init(root) {
       go(form.getAttribute("action") + (q ? "?" + q : ""), true);
     });
   });
+  // "Ruil voorstellen": pick one of your own offers, or type the shift in. The hidden block is
+  // disabled, so the browser neither validates nor sends it.
+  root.querySelectorAll("form[data-source]").forEach(function (form) {
+    form.addEventListener("change", function (e) {
+      if (e.target.name !== "source") return;
+      form.dataset.source = e.target.value;
+      form.querySelectorAll(".only-own").forEach(function (f) { f.disabled = e.target.value !== "own"; });
+      form.querySelectorAll(".only-typed").forEach(function (f) { f.disabled = e.target.value !== "typed"; });
+    });
+  });
   // Weggeven / Zoeken: switch in place. The hidden variant's fieldsets are disabled, so the
   // browser neither validates nor submits them.
   root.querySelectorAll("form[data-kind-switch]").forEach(function (form) {

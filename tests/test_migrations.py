@@ -47,6 +47,16 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
     con.commit()
     con.close()
 
+    alembic(db, "upgrade", "7e500a3621ae")  # 0.8.0: before swaps
+    con = sqlite3.connect(db)
+    # a reply to the wanted request (listing 3) that offers a shift, written before swaps existed
+    con.execute(
+        "insert into reactions(listing_id,user_id,status,offer_type,offer_start,offer_end,"
+        "created_at) values(3,1,'pending','H','19:00','23:00','2026-10-02')"
+    )
+    con.commit()
+    con.close()
+
     alembic(db, "upgrade", "head")
 
     con = sqlite3.connect(db)
@@ -65,3 +75,6 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
     row = con.execute("select code, is_main, role from invite_links").fetchall()
     assert row == [("groep-code-123", 1, "member")]
     assert con.execute("select count(*) from app_settings where key='join_code'").fetchone()[0] == 0
+    # swaps: existing listings stay "give", and the earlier reply got its date (the request's)
+    assert {r[0] for r in con.execute("select mode from listings")} == {"give"}
+    assert con.execute("select offer_date from reactions").fetchone() == ("2026-12-03",)

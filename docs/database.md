@@ -43,6 +43,8 @@ app_settings  (key/value, no relations)
 | `user_id` | who posted it |
 | `date` | the shift date |
 | `shift_type` | offer: one type, e.g. `HG` or `Inwerk` |
+| `mode` | offer: `give` (anyone can take it), `trade` (swap only: a reaction must carry a shift back) or `both` |
+| `want_from`, `want_to`, `want_types` | offer with a swap: what the poster would like back (all optional; a hint only, proposals outside it are allowed) |
 | `wanted_types` | wanted: acceptable types, comma separated (`H,HG,G`) |
 | `start`, `end` | offer: required `HH:MM` |
 | `daypart` | wanted: optional `ochtend` / `middag` / `avond` |
@@ -59,7 +61,8 @@ app_settings  (key/value, no relations)
 |---|---|
 | `listing_id`, `user_id` | |
 | `status` | `pending` → `accepted` / `declined` / `withdrawn` / `expired` |
-| `offer_type`, `offer_start`, `offer_end`, `offer_hall`, `offer_workplace` | only on a wanted listing: the shift being offered in reply |
+| `offer_type`, `offer_date`, `offer_start`, `offer_end`, `offer_hall`, `offer_workplace` | the shift the reactor gives back: in reply to a wanted request, or in a swap proposal on an offer |
+| `offer_listing_id` | set when the reactor picked one of their own open offers for this; that offer is removed when the swap is confirmed |
 | `offer_daypart` | legacy (0.3–0.4), no longer written |
 | `created_at` | decides "who was first" (with `id` as tie-breaker) |
 | `decided_at` | when the status left `pending` |
@@ -79,7 +82,9 @@ reaction:  pending ──► accepted    owner chose this one (the listing becom
 
 A **completed swap** is a `taken` listing plus its `accepted` reaction. Who gives and who
 takes depends on the kind (`services/listings.py:Deal`): on an offer the poster gives the
-shift away; on a wanted listing the reactor gives theirs.
+shift away; on a wanted listing the reactor gives theirs. On an offer where the accepted
+reaction carries a shift back (a real swap, "ruil"), `Deal.return_shift` is what the reactor
+gives to the poster, and the email to planning lists both.
 
 ### `notifications`: the bell
 
@@ -113,7 +118,8 @@ public repository:
 |---|---|
 | `halls` | zaal choices, one per line |
 | `workplaces` | werkplek choices, one per line |
-| `mail_subject`, `mail_body` | the planning mail template (absent = the default in `services/planning.py`) |
+| `mail_subject`, `mail_body` | the planning mail template for a shift given away (absent = the default in `services/planning.py`) |
+| `mail_trade_subject`, `mail_trade_body` | the same for a real swap (two shifts) |
 | `demo_user_ids` | ids of the made-up demo colleagues (`services/demo.py`), so they can be removed in one go |
 
 ## Retention

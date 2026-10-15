@@ -14,7 +14,7 @@ from tests.conftest import login, make_user
 TODAY = get_settings().today()
 
 
-def post_offer(client, day=None, code="HG", start="18:00", end="23:30", note=""):
+def post_offer(client, day=None, code="HG", start="18:00", end="23:30", note="", **extra):
     day = day or TODAY + timedelta(days=3)
     r = client.post(
         "/plaatsen",
@@ -25,6 +25,7 @@ def post_offer(client, day=None, code="HG", start="18:00", end="23:30", note="")
             "end": end,
             "code": code,
             "note": note,
+            **extra,  # e.g. mode="trade", want_types=["H"]
         },
     )
     assert r.status_code == 200, r.text

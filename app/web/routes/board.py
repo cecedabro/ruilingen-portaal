@@ -48,6 +48,7 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         weeks=board.day_choices(today, everything, flt.dagen, settings.roster_release_weekday),
         halls=appdata.get_list(db, "halls"),
         workplaces=appdata.get_list(db, "workplaces"),
+        my_offers=board.my_open_offers(db, user, today),
         here=request.url.path + (f"?{request.url.query}" if request.url.query else ""),
     )
 
@@ -72,7 +73,15 @@ def mine(request: Request, user=Depends(require_user), db=Depends(get_db)):
         deal = Deal.of(listing)
         mail = planning.compose(db, settings, deal) if deal else None
         items.append((listing, deal, mail))
-    return render(request, "mine.html", db=db, user=user, tab="mijn", items=items)
+    return render(
+        request,
+        "mine.html",
+        db=db,
+        user=user,
+        tab="mijn",
+        items=items,
+        my_offers=board.my_open_offers(db, user, settings.today()),
+    )
 
 
 @router.get("/meldingen", response_class=HTMLResponse)

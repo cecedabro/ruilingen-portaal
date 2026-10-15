@@ -15,11 +15,14 @@
 {%- if info.start %}{{ info.start }} – {{ info.end }}{% elif info.daypart %}{{ info.daypart }}{% endif -%}
 {%- endmacro %}
 
-{# The always-visible first line of a card. #}
-{% macro headline(info, codes) -%}
+{# The always-visible first line of a card. `swap` = "trade" / "both" adds the orange ruil label. #}
+{% macro headline(info, codes, swap="") -%}
 <div class="line1">
   <span class="day">{{ day_label(info.day) }}<span class="time">{{ time_label(info) }}</span></span>
-  <span class="labels">{% for c in codes %}{{ code(c) }}{% endfor %}</span>
+  <span class="labels">
+    {%- if swap %}<span class="swap-label">{{ "ruil" if swap == "trade" else "ruil of weg" }}</span>{% endif -%}
+    {%- for c in codes %}{{ code(c) }}{% endfor -%}
+  </span>
 </div>
 {%- endmacro %}
 
@@ -34,36 +37,71 @@
 {% endif %}
 {%- endmacro %}
 
-{# Form fields for the shift you offer in reply to a wanted request. #}
-{% macro offer_fields(l, halls, workplaces) -%}
-<div class="grid2">
-  <div class="field"><label for="os{{ l.id }}">Begin</label><input type="time" id="os{{ l.id }}" name="offer_start" required></div>
-  <div class="field"><label for="oe{{ l.id }}">Eind</label><input type="time" id="oe{{ l.id }}" name="offer_end" required></div>
-  <div class="field"><label for="oh{{ l.id }}">Zaal</label>
-    <select id="oh{{ l.id }}" name="offer_hall"><option value="">–</option>{% for h in halls %}<option>{{ h }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="ow{{ l.id }}">Werkplek</label>
-    <select id="ow{{ l.id }}" name="offer_workplace"><option value="">–</option>{% for w in workplaces %}<option>{{ w }}</option>{% endfor %}</select></div>
-</div>
+{# The shift you give back: "Ik heb er een" on a wanted request (date = the request's date),
+   or "Ruil voorstellen" on a swap offer (you choose the date). With open offers of your own you
+   can pick one of those instead of typing: the two blocks switch via data-source (app.js);
+   the hidden one is disabled, so it is neither validated nor sent. #}
+{% macro proposal(l, next, label, primary, my_offers, halls, workplaces, with_date) -%}
+<details class="offer">
+  <summary class="btn {{ 'primary' if primary else 'secondary' }}">{{ label }}</summary>
+  <form class="stack" method="post" action="/listings/{{ l.id }}/react" data-source="{{ 'own' if my_offers else 'typed' }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    {% if my_offers %}
+    <div class="seg" role="radiogroup" aria-label="Welke dienst geef je terug?">
+      <label><input type="radio" name="source" value="own" checked><span>Mijn aangeboden dienst</span></label>
+      <label><input type="radio" name="source" value="typed"><span>Zelf invullen</span></label>
+    </div>
+    <fieldset class="field only-own">
+      <label for="ol{{ l.id }}">Welke dienst geef je terug?</label>
+      <select id="ol{{ l.id }}" name="offer_listing_id">
+        {% for o in my_offers %}<option value="{{ o.id }}">{{ fmt_date(o.date) | capitalize }} {{ time_label(o.info) }} · {{ o.shift_type }}</option>{% endfor %}
+      </select>
+    </fieldset>
+    {% endif %}
+    <fieldset class="stack only-typed" {% if my_offers %}disabled{% endif %}>
+      {% if with_date %}
+      <div class="field"><label for="od{{ l.id }}">Datum</label><input type="date" id="od{{ l.id }}" name="offer_date" required min="{{ today_iso() }}"></div>
+      {% endif %}
+      <div class="field"><label for="ot{{ l.id }}">Soort</label>
+        <select id="ot{{ l.id }}" name="offer_type">
+          {% set first = l.wanted_type_list if l.kind == "wanted" else l.want_type_list %}
+          {% for t in first %}<option>{{ t }}</option>{% endfor %}
+          {% for t in SHIFT_TYPES if t not in first %}<option>{{ t }}</option>{% endfor %}
+        </select></div>
+      <div class="grid2">
+        <div class="field"><label for="os{{ l.id }}">Begin</label><input type="time" id="os{{ l.id }}" name="offer_start" required></div>
+        <div class="field"><label for="oe{{ l.id }}">Eind</label><input type="time" id="oe{{ l.id }}" name="offer_end" required></div>
+        <div class="field"><label for="oh{{ l.id }}">Zaal</label>
+          <select id="oh{{ l.id }}" name="offer_hall"><option value="">–</option>{% for h in halls %}<option>{{ h }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="ow{{ l.id }}">Werkplek</label>
+          <select id="ow{{ l.id }}" name="offer_workplace"><option value="">–</option>{% for w in workplaces %}<option>{{ w }}</option>{% endfor %}</select></div>
+      </div>
+    </fieldset>
+    <div><button class="btn primary" type="submit">{{ "Voorstel sturen" if with_date else "Aanbieden" }}</button></div>
+  </form>
+</details>
 {%- endmacro %}
 
 {#- One listing. `rank` = posting order (#1 posted first); `extra` is appended inside the
     opened card (the owner's list of reactions on "Mijn"). -#}
-{% macro shift(l, user, next="", extra="", rank=none, halls=[], workplaces=[], open=false) -%}
+{% macro shift(l, user, next="", extra="", rank=none, halls=[], workplaces=[], my_offers=[], open=false) -%}
 {% set mine = l.user_id == user.id %}
 {% set pending = l.pending_reactions %}
 {% set mine_r = pending | selectattr("user_id", "equalto", user.id) | first %}
 {% set n = pending | length %}
+{#- A swap-only offer talks about "voorstellen", everything else about "reacties". -#}
+{% set noun = "voorstel" if l.mode == "trade" else "reactie" %}
+{% set nouns = "voorstellen" if l.mode == "trade" else "reacties" %}
 <details class="shift{{ ' is-mine' if mine }}" id="l{{ l.id }}" {% if open %}open{% endif %}>
   <summary>
-    {{ headline(l.info, [l.shift_type] if l.kind == "offer" else l.wanted_type_list) }}
+    {{ headline(l.info, [l.shift_type] if l.kind == "offer" else l.wanted_type_list, l.mode if l.is_swap else "") }}
     <div class="line2">
       <span class="who">
         {% if rank %}<span class="rank" title="{{ rank }}e geplaatst">#{{ rank }}</span>{% endif %}
         <span>{{ "Jij" if mine else l.user.name }}</span>
-        {% if relative_day(l.date) %}<span class="soon">{{ relative_day(l.date) }}</span>{% endif %}
-        {% if mine %}<span class="status {{ 'wait' if n else 'idle' }}">{{ n }} reactie{{ '' if n == 1 else 's' }}</span>
-        {% elif mine_r %}<span class="status wait">gereageerd</span>
-        {% elif n %}<span class="status wait">{{ n }} reactie{{ '' if n == 1 else 's' }}</span>{% endif %}
+        {% if mine %}<span class="status {{ 'wait' if n else 'idle' }}">{{ n }} {{ noun if n == 1 else nouns }}</span>
+        {% elif mine_r %}<span class="status wait">{{ "voorgesteld" if mine_r.offer_type and l.kind == "offer" else "gereageerd" }}</span>
+        {% elif n %}<span class="status wait">{{ n }} {{ noun if n == 1 else nouns }}</span>{% endif %}
       </span>
       <span class="chev" aria-hidden="true"></span>
     </div>
@@ -71,6 +109,9 @@
 
   <div class="more">
     {{ facts(l.info, l.note) }}
+    {% if l.is_swap %}
+    <div class="want"><b>{{ l.user.first_name if not mine else "Jij" }} zoekt terug:</b> {{ l.want_text or "maakt niet uit" }}</div>
+    {% endif %}
 
     {% if not (mine and extra) %}
     <div class="act">
@@ -85,30 +126,16 @@
         </form>
       {% else %}
         {% if n %}<span class="status wait">wacht op {{ l.user.first_name }}</span>{% endif %}
-        {% if l.kind == "offer" %}
+        {% if l.kind == "offer" and l.mode != "trade" %}
         <form class="inline" method="post" action="/listings/{{ l.id }}/react">
           <input type="hidden" name="next" value="{{ next }}">
-          <button class="btn {{ 'secondary' if n else 'primary' }}" type="submit">{{ "Reageer als " ~ (n + 1) ~ "e" if n else "Overnemen" }}</button>
+          <button class="btn {{ 'secondary' if n or l.mode == 'both' else 'primary' }}" type="submit">{{ "Reageer als " ~ (n + 1) ~ "e" if n else "Overnemen" }}</button>
         </form>
         {% endif %}
+        {% if l.is_swap %}{{ proposal(l, next, "Ruil voorstellen", true, my_offers, halls, workplaces, true) }}{% endif %}
+        {% if l.kind == "wanted" %}{{ proposal(l, next, "Ik heb er een", n == 0, my_offers, halls, workplaces, false) }}{% endif %}
       {% endif %}
     </div>
-    {% endif %}
-
-    {% if l.kind == "wanted" and not mine and not mine_r %}
-    <details class="offer">
-      <summary class="btn {{ 'secondary' if n else 'primary' }}">Ik heb er een</summary>
-      <form class="stack" method="post" action="/listings/{{ l.id }}/react">
-        <input type="hidden" name="next" value="{{ next }}">
-        <div class="field"><label for="ot{{ l.id }}">Soort</label>
-          <select id="ot{{ l.id }}" name="offer_type">
-            {% for t in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
-            {% for t in SHIFT_TYPES if t not in l.wanted_type_list %}<option>{{ t }}</option>{% endfor %}
-          </select></div>
-        {{ offer_fields(l, halls, workplaces) }}
-        <div><button class="btn primary" type="submit">Aanbieden</button></div>
-      </form>
-    </details>
     {% endif %}
 
     {% if user.is_admin and not mine and l.status == "open" %}

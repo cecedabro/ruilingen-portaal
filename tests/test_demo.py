@@ -25,7 +25,9 @@ def test_seed_is_once_and_remove_only_touches_demo(people):
 
     # a real colleague reacts to a demo shift, then the demo data is removed
     with SessionLocal() as s:
-        lid = s.scalars(select(Listing.id).where(Listing.kind == "offer")).first()
+        lid = s.scalars(
+            select(Listing.id).where(Listing.kind == "offer", Listing.mode == "give")
+        ).first()
     s_client.post(f"/listings/{lid}/react")
     _, a = admin_client()
     assert "Demo-data verwijderen" in a.get("/beheer").text
