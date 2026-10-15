@@ -10,6 +10,11 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - **Manifest changes**: must be made in the homelab repo (`apps/ruilingen/`) as well.
 
 ## Unreleased
+- Schema change: none
+- New secret keys: none
+- Manifest changes: none
+
+## 0.9.0 (2026-10-15)
 - Swaps (ruilen): when giving a shift away you choose Weggeven, Ruilen or Allebei, and can say
   what you'd like back (date range, types; optional). Others propose a swap with "Ruil
   voorstellen": type in the shift they give back, or pick one of their own offered shifts
