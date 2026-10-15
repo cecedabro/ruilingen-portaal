@@ -15,9 +15,20 @@ from app.web.session import log_out, require_user
 router = APIRouter()
 
 
+def _account_page(request: Request, db, user, **ctx):
+    return render(
+        request,
+        "account.html",
+        db=db,
+        user=user,
+        pending_email=logins.pending_email(db, user),
+        **ctx,
+    )
+
+
 @router.get("/account", response_class=HTMLResponse)
 def account(request: Request, user=Depends(require_user), db=Depends(get_db)):
-    return render(request, "account.html", db=db, user=user)
+    return _account_page(request, db, user)
 
 
 @router.post("/account")
@@ -48,32 +59,36 @@ def set_email(
     user=Depends(require_user),
     db=Depends(get_db),
 ):
-    """Empty removes the address; otherwise a verification mail is sent first."""
+    """Add or change the address: a confirmation mail is sent first, and the address is only
+    saved once its link is opened (so a typo never replaces a working address)."""
     settings = get_settings()
     if not settings.mail_enabled:
-        return redirect("/account")
-    if not email.strip():
-        user.email = None
-        db.commit()
-        flash(request, "E-mailadres verwijderd.")
         return redirect("/account")
     try:
         link = logins.request_email_change(db, settings, user, email)
     except UserError as e:
         flash(request, str(e), "error")
-        return redirect("/account")
+        return redirect("/account#email")
     send_queued(db, background)
-    flash(request, "Check je mail en klik op de link om het adres te bevestigen.")
+    flash(request, "Bevestiging verstuurd. Klik op de link in de mail om het adres te bevestigen.")
     if settings.dev_mode:
         flash(request, f"Ontwikkelmodus: {link}")
-    return redirect("/account")
+    return redirect("/account#email")
+
+
+@router.post("/account/email/remove")
+def remove_email(request: Request, user=Depends(require_user), db=Depends(get_db)):
+    """Delete the address from the database (and any unconfirmed attempt)."""
+    logins.remove_email(db, user)
+    flash(request, "Je e-mailadres is verwijderd.")
+    return redirect("/account#email")
 
 
 @router.post("/account/device-link", response_class=HTMLResponse)
 def device_link(request: Request, user=Depends(require_user), db=Depends(get_db)):
     """A one-time link to open on another device (shown once, on this page)."""
     link = logins.make_link(db, get_settings(), user)
-    return render(request, "account.html", db=db, user=user, device_link=link)
+    return _account_page(request, db, user, device_link=link)
 
 
 @router.post("/account/logout-everywhere")

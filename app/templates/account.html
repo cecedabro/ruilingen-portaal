@@ -23,14 +23,41 @@
 </form>
 
 {% if settings.mail_enabled %}
-<form class="form" method="post" action="/account/email">
-  <div class="field"><label for="email">E-mail <span class="opt">optioneel: een mail als iemand op je dienst reageert</span></label>
-    <div class="copyrow">
-      <input id="email" name="email" type="email" value="{{ user.email or '' }}" autocomplete="email">
-      <button class="btn" type="submit">{{ "Wijzig" if user.email else "Koppel" }}</button>
-    </div>
+<section class="form" id="email">
+  <h2>E-mail</h2>
+  {% if user.email %}
+  <p>Als iemand op je dienst reageert, krijg je een mail op <b>{{ user.email }}</b>.</p>
+  {% else %}
+  <p class="meta">Optioneel: een mail als iemand op je dienst reageert. Zonder e-mail zie je het alleen bij het belletje in de app.</p>
+  {% endif %}
+  {% if pending_email %}
+  <p><span class="status wait">Wacht op bevestiging</span> <span class="meta">We hebben een mail gestuurd naar {{ pending_email }}. Klik op de link erin om het adres te bevestigen.</span></p>
+  {% endif %}
+
+  {% if user.email %}
+  <div class="actions">
+    <details class="offer reveal">
+      <summary class="btn secondary">Wijzig adres</summary>
+      <form class="stack" method="post" action="/account/email">
+        <div class="field"><label for="email-new">Nieuw e-mailadres</label>
+          <input id="email-new" name="email" type="email" required autocomplete="email" placeholder="naam@voorbeeld.nl"></div>
+        <div><button class="btn primary" type="submit">Stuur bevestiging</button></div>
+      </form>
+    </details>
+    <form class="inline" method="post" action="/account/email/remove" data-confirm="Je e-mailadres verwijderen? Je krijgt dan geen mails meer.">
+      <button class="linkish danger" type="submit">Verwijder e-mailadres</button>
+    </form>
   </div>
-</form>
+  {% else %}
+  <form class="stack" method="post" action="/account/email">
+    <div class="field"><label for="email-add">E-mailadres</label>
+      <div class="copyrow">
+        <input id="email-add" name="email" type="email" required autocomplete="email" placeholder="naam@voorbeeld.nl">
+        <button class="btn primary" type="submit">Koppel</button>
+      </div></div>
+  </form>
+  {% endif %}
+</section>
 {% endif %}
 
 <div class="form">

@@ -42,6 +42,11 @@ cp .env.example .env                       # DEV_MODE: mails go to the log
 .venv/bin/pytest -q                        # tests
 ```
 
+## License
+
+[MIT](LICENSE): free to use, study, change and share. Suggestions and changes are welcome, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Stack
 
 FastAPI + Jinja2 (server-rendered HTML), SQLAlchemy 2 + Alembic on SQLite, a ~150-line

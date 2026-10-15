@@ -11,7 +11,7 @@ import secrets
 from datetime import timedelta
 from urllib.parse import quote
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -83,6 +83,8 @@ def request_email_change(db: Session, settings: Settings, user: User, email: str
     email = normalise_email(email)
     if "@" not in email or "." not in email.split("@")[-1] or len(email) > 254:
         raise UserError("Dat is geen geldig e-mailadres.")
+    if email == user.email:
+        raise UserError("Dit e-mailadres staat al ingesteld.")
     if db.scalar(select(User.id).where(User.email == email, User.id != user.id)):
         raise UserError("Dat e-mailadres hoort al bij iemand anders.")
     recent = db.scalar(
@@ -105,6 +107,31 @@ def request_email_change(db: Session, settings: Settings, user: User, email: str
     return link
 
 
+def pending_email(db: Session, user: User) -> str | None:
+    """The address a confirmation mail was sent to and that hasn't been confirmed yet."""
+    token = db.scalar(
+        select(LoginToken)
+        .where(
+            LoginToken.user_id == user.id,
+            LoginToken.email.is_not(None),
+            LoginToken.used_at.is_(None),
+            LoginToken.expires_at > utcnow(),
+        )
+        .order_by(LoginToken.created_at.desc())
+    )
+    return token.email if token else None
+
+
+def remove_email(db: Session, user: User) -> None:
+    """Forget the address completely: the verified one and any unconfirmed attempt (the
+    tokens contain the address, so they go too)."""
+    user.email = None
+    db.execute(
+        delete(LoginToken).where(LoginToken.user_id == user.id, LoginToken.email.is_not(None))
+    )
+    db.commit()
+
+
 def verify_email(db: Session, raw: str) -> User | None:
     """Confirm a notification address. Deliberately does not log anyone in."""
     token = find_token(db, raw)
@@ -114,5 +141,14 @@ def verify_email(db: Session, raw: str) -> User | None:
     taken = db.scalar(select(User.id).where(User.email == token.email, User.id != token.user_id))
     if not taken:
         token.user.email = token.email
+        # Other unconfirmed attempts (a retry, an older typo) are obsolete now.
+        db.execute(
+            delete(LoginToken).where(
+                LoginToken.user_id == token.user_id,
+                LoginToken.email.is_not(None),
+                LoginToken.used_at.is_(None),
+                LoginToken.id != token.id,
+            )
+        )
     db.commit()
     return None if taken else token.user

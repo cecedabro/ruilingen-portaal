@@ -3,6 +3,9 @@
 Thanks for helping. Ruilingen is a small app for real colleagues, so changes go through the
 owner: **only @cecedabro merges to `main` and makes releases.**
 
+By contributing you agree that your contribution is released under the project's
+[MIT license](LICENSE).
+
 ## How changes get in
 
 1. Fork the repo (or create a branch if you have access) and make your change there.

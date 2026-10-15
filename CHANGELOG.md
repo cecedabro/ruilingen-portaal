@@ -14,6 +14,18 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.11.0 (2026-10-15)
+- MIT license added (LICENSE).
+- Account → E-mail redesigned: shows your current address, "Wijzig adres" opens a field (the
+  old button silently re-sent a confirmation for the same address and looked like it did nothing),
+  "Verwijder e-mailadres" deletes it from the database together with any unconfirmed attempt, and an
+  address waiting for confirmation is shown. Re-entering the same address is refused.
+- Fix: duplicate HTML id on the account page.
+
+- Schema change: none (rolling back is just pinning the previous image tag)
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.10.0 (2026-10-15)
 - Posting order (#1, #2, …) is now counted per day: among the shifts for the same date.
 - "Ik heb er een" / "Ruil voorstellen" buttons show the pointer cursor on desktop (they showed
