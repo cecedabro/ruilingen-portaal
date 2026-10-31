@@ -14,6 +14,16 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.11.1 (2026-10-31)
+- Security update of the web libraries, fixing published advisories (mostly denial-of-service
+  through crafted requests): FastAPI 0.115.12 → 0.162.0, Starlette 0.46.2 → 1.10.0 (now pinned
+  explicitly, as the app imports it), python-multipart 0.0.20 → 0.0.32. Dev only: pytest 9.2.0.
+- No functional changes.
+
+- Schema change: none (rollback = pin the previous image tag)
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.11.0 (2026-10-15)
 - MIT license added (LICENSE).
 - Account → E-mail redesigned: shows your current address, "Wijzig adres" opens a field (the
