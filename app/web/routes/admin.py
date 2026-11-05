@@ -23,6 +23,7 @@ def _page(request: Request, db: Session, user: User, **ctx):
     settings = get_settings()
     main = invites.main_link(db)
     subject, body = planning.template(db)
+    places_by_hall, places_everywhere = appdata.workplaces_by_hall(db)
     trade_subject, trade_body = planning.template(db, trade=True)
     return render(
         request,
@@ -34,7 +35,8 @@ def _page(request: Request, db: Session, user: User, **ctx):
         links=[(link, invites.url(settings, link)) for link in invites.extra_links(db)],
         users=members.all_members(db),
         halls=appdata.get_list(db, "halls"),
-        workplaces=appdata.get_list(db, "workplaces"),
+        places_by_hall=places_by_hall,
+        places_everywhere=places_everywhere,
         daypart_times="\n".join(
             f"{name} {start}-{end}" for name, (start, end) in appdata.daypart_times(db).items()
         ),
@@ -193,16 +195,34 @@ def delete_listing(
 def save_lists(
     request: Request,
     halls: str = Form(""),
-    workplaces: str = Form(""),
     daypart_times: str = Form(""),
     user=Depends(require_admin),
     db=Depends(get_db),
 ):
     appdata.set_list(db, "halls", halls.splitlines())
-    appdata.set_list(db, "workplaces", workplaces.splitlines())
     appdata.set_daypart_times(db, daypart_times)
     flash(request, "Lijsten opgeslagen.")
     return redirect("/beheer#lijsten")
+
+
+@router.post("/werkplekken")
+def save_workplaces(
+    request: Request,
+    hall_name: list[str] = Form([]),
+    hall_places: list[str] = Form([]),
+    everywhere: str = Form(""),
+    user=Depends(require_admin),
+    db=Depends(get_db),
+):
+    halls = {h.lower(): h for h in appdata.get_list(db, "halls")}
+    by_hall = {
+        halls[name.lower()]: text.splitlines()
+        for name, text in zip(hall_name, hall_places, strict=False)
+        if name.lower() in halls
+    }
+    appdata.set_workplaces(db, by_hall, everywhere.splitlines())
+    flash(request, "Werkplekken opgeslagen.")
+    return redirect("/beheer#werkplekken")
 
 
 @router.post("/mail")

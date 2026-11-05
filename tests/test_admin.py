@@ -70,10 +70,45 @@ def test_admin_edits_venue_lists(people):
     _, s_client = people["sanne"]
     admin = make_user("Ad Min", is_admin=True)
     a_client = login(TestClient(app), admin)
+    a_client.post("/beheer/lijsten", data={"halls": "Zaal A\nZaal B\n\nOverig"})
     a_client.post(
-        "/beheer/lijsten", data={"halls": "Zaal A\nZaal B\n\nOverig", "workplaces": "Bar 1"}
+        "/beheer/werkplekken",
+        data={
+            "hall_name": ["Zaal A", "Zaal B"],
+            "hall_places": ["Bar 1\nFoyer", "Foyer\nBar 2"],
+            "everywhere": "Overig",
+        },
     )
     page = s_client.get("/plaatsen").text
     assert ">Zaal A</option>" in page and ">Bar 1</option>" in page
     assert ">Grote Zaal</option>" not in page
     assert s_client.post("/beheer/lijsten", data={"halls": "x"}).status_code == 403
+
+
+def test_werkplekken_per_zaal_survive_saving_again():
+    from app.db import SessionLocal
+    from app.services import appdata
+
+    admin = make_user("Ad Min", is_admin=True)
+    a = login(TestClient(app), admin)
+    a.post("/beheer/lijsten", data={"halls": "Grote Zaal\nKleine Zaal"})
+    a.post(
+        "/beheer/werkplekken",
+        data={
+            "hall_name": ["Grote Zaal", "Kleine Zaal", "Onbekend"],
+            "hall_places": ["Bach\nBordes", "Felix\nBordes", "Spook"],
+            "everywhere": "Overig",
+        },
+    )
+    with SessionLocal() as db:
+        assert appdata.get_value(db, "workplaces") == (
+            "Bach | Grote Zaal\nBordes | Grote Zaal, Kleine Zaal\nFelix | Kleine Zaal\nOverig"
+        )
+        by_hall, everywhere = appdata.workplaces_by_hall(db)
+    assert by_hall == {"Grote Zaal": ["Bach", "Bordes"], "Kleine Zaal": ["Bordes", "Felix"]}
+    assert everywhere == ["Overig"]
+
+    # the page shows the saved mapping, so saving the page again changes nothing
+    page = a.get("/beheer").text
+    assert "Bach\nBordes</textarea>" in page and "Felix\nBordes" not in page
+    assert "Bordes\nFelix</textarea>" in page

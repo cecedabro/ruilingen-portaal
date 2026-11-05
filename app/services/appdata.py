@@ -78,6 +78,38 @@ def set_list(db: Session, key: str, values: list[str]) -> list[str]:
     return unique
 
 
+def workplaces_by_hall(db: Session) -> tuple[dict[str, list[str]], list[str]]:
+    """The werkplekken as Beheer edits them: ({zaal: [names]}, [names for every zaal])."""
+    halls = get_list(db, "halls")
+    by_hall: dict[str, list[str]] = {h: [] for h in halls}
+    everywhere: list[str] = []
+    for place in get_list(db, "workplaces"):
+        if not place.halls:
+            everywhere.append(str(place))
+        for hall in halls:
+            if hall.lower() in (h.lower() for h in place.halls):
+                by_hall[hall].append(str(place))
+    return by_hall, everywhere
+
+
+def set_workplaces(db: Session, by_hall: dict[str, list[str]], everywhere: list[str]) -> None:
+    """Save the werkplekken from the per-zaal boxes. A name listed under several zalen becomes
+    one line 'Bordes | Grote Zaal, Kleine Zaal'; a name in the "alle zalen" box has no zaal."""
+
+    def clean(name: str) -> str:
+        return " ".join(name.replace("|", " ").replace(",", " ").split())[:MAX_ITEM_LENGTH]
+
+    everyone = {clean(n).lower() for n in everywhere if clean(n)}
+    restricted: dict[str, tuple[str, list[str]]] = {}  # lowercase name -> (name, its zalen)
+    for hall, names in by_hall.items():
+        for name in map(clean, names):
+            if name and name.lower() not in everyone:
+                restricted.setdefault(name.lower(), (name, []))[1].append(hall)
+    lines = [f"{name} | {', '.join(halls)}" for name, halls in restricted.values()]
+    lines += [clean(n) for n in everywhere]
+    set_list(db, "workplaces", lines)
+
+
 def _parse_daypart_lines(text: str) -> dict[str, tuple[str, str]]:
     """Lines like 'avond 18:00-23:00' -> {'avond': ('18:00', '23:00')}; bad lines are skipped."""
     found = {}

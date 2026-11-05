@@ -128,15 +128,24 @@
 </form>
 
 <form class="form" method="post" action="/beheer/lijsten" id="lijsten">
-  <h2>Keuzelijsten</h2>
-  <div class="grid2">
-    <div class="field"><label for="lh">Zalen <span class="opt">één per regel</span></label>
-      <textarea id="lh" name="halls" rows="6">{{ halls | join("\n") }}</textarea></div>
-    <div class="field"><label for="lw">Werkplekken <span class="opt">één per regel, eventueel "naam | zaal, zaal"</span></label>
-      <textarea id="lw" name="workplaces" rows="6">{{ workplaces | join("\n") }}</textarea></div>
-  </div>
+  <h2>Zalen en dagdelen</h2>
+  <div class="field"><label for="lh">Zalen <span class="opt">één per regel</span></label>
+    <textarea id="lh" name="halls" rows="4">{{ halls | join("\n") }}</textarea></div>
   <div class="field"><label for="ld">Standaardtijden per dagdeel <span class="opt">bijv. avond 18:00-23:00</span></label>
     <textarea id="ld" name="daypart_times" rows="3">{{ daypart_times }}</textarea></div>
+  <div><button class="btn primary" type="submit">Opslaan</button></div>
+</form>
+
+<form class="form" method="post" action="/beheer/werkplekken" id="werkplekken">
+  <h2>Werkplekken</h2>
+  <p class="meta">Per zaal de werkplekken die daar bij horen, één per regel. Kies je in het formulier een zaal, dan zie je alleen die. Sla nieuwe zalen eerst hierboven op.</p>
+  {% for hall, names in places_by_hall.items() %}
+  <div class="field"><label for="wp{{ loop.index }}">In {{ hall }}</label>
+    <input type="hidden" name="hall_name" value="{{ hall }}">
+    <textarea id="wp{{ loop.index }}" name="hall_places" rows="4">{{ names | join("\n") }}</textarea></div>
+  {% endfor %}
+  <div class="field"><label for="wpa">In elke zaal <span class="opt">bijv. Overig</span></label>
+    <textarea id="wpa" name="everywhere" rows="3">{{ places_everywhere | join("\n") }}</textarea></div>
   <div><button class="btn primary" type="submit">Opslaan</button></div>
 </form>
 {% endblock %}

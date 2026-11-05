@@ -14,6 +14,14 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.12.2 (2026-11-05)
+- **Fix:** Beheer showed the werkplekken without their zaal, so saving again wiped the link
+  between werkplek and zaal. Werkplekken are now edited in one box per zaal (plus one for every
+  zaal), and saving the page again keeps everything.
+- Schema change: none
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.12.1 (2026-11-05)
 - **Werkplek follows zaal:** a werkplek can be tied to zalen on Beheer (`Bachfoyer | Grote Zaal`);
   the werkplek list then only shows the ones that fit the chosen zaal.
