@@ -3,7 +3,7 @@
 A small web app where front-of-house colleagues swap shifts, instead of a busy WhatsApp group.
 Live at **https://ruilingen.app** (a pilot on a home server: if it's down, use the group chat).
 
-- **Aangeboden / Gezocht:** shifts given away and shifts people look for, with who posted
+- **Geven / Nemen:** shifts given away and shifts people look for, with who posted
   first for that day (#1, #2, …), filters by type, day, dagdeel, zaal and availability.
 - **Giving away or swapping:** a shift can be given away, swapped ("ruil": you say what you'd
   like back, others propose one of their shifts), or both.

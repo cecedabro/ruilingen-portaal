@@ -35,6 +35,9 @@ def _page(request: Request, db: Session, user: User, **ctx):
         users=members.all_members(db),
         halls=appdata.get_list(db, "halls"),
         workplaces=appdata.get_list(db, "workplaces"),
+        daypart_times="\n".join(
+            f"{name} {start}-{end}" for name, (start, end) in appdata.daypart_times(db).items()
+        ),
         mail_subject=subject,
         mail_body=body,
         trade_subject=trade_subject,
@@ -191,11 +194,13 @@ def save_lists(
     request: Request,
     halls: str = Form(""),
     workplaces: str = Form(""),
+    daypart_times: str = Form(""),
     user=Depends(require_admin),
     db=Depends(get_db),
 ):
     appdata.set_list(db, "halls", halls.splitlines())
     appdata.set_list(db, "workplaces", workplaces.splitlines())
+    appdata.set_daypart_times(db, daypart_times)
     flash(request, "Lijsten opgeslagen.")
     return redirect("/beheer#lijsten")
 

@@ -46,7 +46,16 @@ function init(root) {
       form.querySelectorAll(".only-typed").forEach(function (f) { f.disabled = e.target.value !== "typed"; });
     });
   });
-  // Weggeven / Zoeken: switch in place. The hidden variant's fieldsets are disabled, so the
+  // Dagdeel on "Geven": fill in typical start/end times (still editable by hand).
+  root.querySelectorAll("[data-daypart-fill]").forEach(function (box) {
+    box.addEventListener("change", function (e) {
+      var form = box.closest("form");
+      if (e.target.name !== "fill" || !form) return;
+      form.elements.start.value = e.target.dataset.start;
+      form.elements.end.value = e.target.dataset.end;
+    });
+  });
+  // Geven / Nemen: switch in place. The hidden variant's fieldsets are disabled, so the
   // browser neither validates nor submits them.
   root.querySelectorAll("form[data-kind-switch]").forEach(function (form) {
     form.addEventListener("change", function (e) {

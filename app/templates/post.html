@@ -6,8 +6,8 @@
    fieldsets are disabled, so they're neither validated nor submitted. #}
 <form class="form" method="post" action="/plaatsen" data-kind="{{ kind }}" data-kind-switch>
   <div class="seg" role="radiogroup" aria-label="Wat wil je?">
-    <label><input type="radio" name="kind" value="offer" {% if offer %}checked{% endif %}><span>Weggeven</span></label>
-    <label><input type="radio" name="kind" value="wanted" {% if not offer %}checked{% endif %}><span>Zoeken</span></label>
+    <label><input type="radio" name="kind" value="offer" {% if offer %}checked{% endif %}><span>Geven</span></label>
+    <label><input type="radio" name="kind" value="wanted" {% if not offer %}checked{% endif %}><span>Nemen</span></label>
   </div>
   {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
 
@@ -36,6 +36,13 @@
     </div>
   </fieldset>
 
+  {# A shortcut: picking a dagdeel fills in typical times below (app.js); they stay editable. #}
+  <fieldset class="field only-offer" data-daypart-fill {% if not offer %}disabled{% endif %}>
+    <legend>Dagdeel <span class="opt">vult de tijden in</span></legend>
+    <div class="typepick">
+      {% for p in DAYPARTS %}<label><input type="radio" name="fill" value="{{ p }}" data-start="{{ daypart_times[p][0] }}" data-end="{{ daypart_times[p][1] }}"><span>{{ p }}</span></label>{% endfor %}
+    </div>
+  </fieldset>
   <fieldset class="grid2 only-offer" {% if not offer %}disabled{% endif %}>
     <div class="field"><label for="fs">Begin</label><input type="time" id="fs" name="start" required value="{{ form.start or '' }}"></div>
     <div class="field"><label for="fe">Eind</label><input type="time" id="fe" name="end" required value="{{ form.end or '' }}"></div>

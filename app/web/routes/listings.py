@@ -37,6 +37,7 @@ def _post_page(request: Request, db: Session, user: User, kind: Kind, form: dict
         form=form,
         halls=appdata.get_list(db, "halls"),
         workplaces=appdata.get_list(db, "workplaces"),
+        daypart_times=appdata.daypart_times(db),
         **ctx,
     )
 

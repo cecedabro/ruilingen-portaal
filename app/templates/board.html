@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
-{% block title %}{{ "Aangeboden" if kind == "offer" else "Gezocht" }} · {{ settings.app_name }}{% endblock %}
+{% block title %}{{ "Geven" if kind == "offer" else "Nemen" }} · {{ settings.app_name }}{% endblock %}
 {% block content %}
 {% set path = "/aangeboden" if kind == "offer" else "/gezocht" %}
 <form class="filter" method="get" action="{{ path }}" data-autosubmit>

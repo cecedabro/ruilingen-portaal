@@ -108,7 +108,7 @@ turns it into an error flash and the same redirect.
     (with an `X-Prefetch` header) and links swap `<body>` in place instead of reloading. A
     background fetch never uses up flash messages (`render()` checks the header), and
     `/meldingen` is never prefetched because opening it marks notifications read;
-  - filters apply on change; Weggeven/Zoeken switches without a request;
+  - filters apply on change; Geven/Nemen switches without a request; a dagdeel fills in typical times;
   - copy buttons, "are you sure?" dialogs, the light/dark switch (cookie `theme`).
   Without JavaScript everything still works with full page loads.
 - **Styling.** One stylesheet with design tokens (CSS variables) at the top; dark mode

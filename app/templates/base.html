@@ -34,10 +34,10 @@
 <nav class="tabbar" aria-label="Onderdelen">
   <a href="/aangeboden" {% if tab == "offer" %}aria-current="page"{% endif %}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>
-    <span>Aangeboden</span>{% if nav.offers %}<b>{{ nav.offers }}</b>{% endif %}</a>
+    <span>Geven</span>{% if nav.offers %}<b>{{ nav.offers }}</b>{% endif %}</a>
   <a href="/gezocht" {% if tab == "wanted" %}aria-current="page"{% endif %}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
-    <span>Gezocht</span>{% if nav.wanted %}<b>{{ nav.wanted }}</b>{% endif %}</a>
+    <span>Nemen</span>{% if nav.wanted %}<b>{{ nav.wanted }}</b>{% endif %}</a>
   <a href="/mijn" {% if tab == "mijn" %}aria-current="page"{% endif %}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg>
     <span>Mijn</span>{% if nav.todo %}<b class="todo">{{ nav.todo }}</b>{% endif %}</a>

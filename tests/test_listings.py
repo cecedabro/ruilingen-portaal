@@ -372,3 +372,20 @@ def test_inwerk_is_a_shift_type(people):
     _, s_client = people["sanne"]
     assert shown(s_client, "?soort=I") == {"inwerk"}
     assert ">Inwerk<" in s_client.get("/aangeboden").text
+
+
+def test_daypart_times_default_and_admin_override(db):
+    from app.services import appdata
+
+    assert appdata.daypart_times(db)["avond"] == ("18:00", "23:00")
+    appdata.set_daypart_times(db, "avond 17:45-22:30\nonzin 1-2\nmiddag 25:00-26:00")
+    times = appdata.daypart_times(db)
+    assert times["avond"] == ("17:45", "22:30")
+    assert times["middag"] == ("13:00", "17:30")  # broken line: default stays
+
+
+def test_post_form_offers_dagdeel_with_times(people):
+    _, client = people["sanne"]
+    page = client.get("/plaatsen").text
+    assert 'name="fill" value="avond" data-start="18:00" data-end="23:00"' in page
+    assert ">Geven<" in page and ">Nemen<" in page

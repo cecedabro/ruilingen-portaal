@@ -135,6 +135,8 @@
     <div class="field"><label for="lw">Werkplekken <span class="opt">één per regel</span></label>
       <textarea id="lw" name="workplaces" rows="6">{{ workplaces | join("\n") }}</textarea></div>
   </div>
+  <div class="field"><label for="ld">Standaardtijden per dagdeel <span class="opt">bijv. avond 18:00-23:00</span></label>
+    <textarea id="ld" name="daypart_times" rows="3">{{ daypart_times }}</textarea></div>
   <div><button class="btn primary" type="submit">Opslaan</button></div>
 </form>
 {% endblock %}

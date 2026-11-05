@@ -14,6 +14,14 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.12.0 (2026-11-05)
+- **Geven / Nemen:** the two boards are now called Geven and Nemen (tab bar, post form).
+- **Dagdeel on Geven:** pick ochtend/middag/avond and the begin/eind times are filled in (editable);
+  the typical times are an admin setting on Beheer.
+- Schema change: none
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.11.1 (2026-10-31)
 - Security update of the web libraries, fixing published advisories (mostly denial-of-service
   through crafted requests): FastAPI 0.115.12 → 0.162.0, Starlette 0.46.2 → 1.10.0 (now pinned
