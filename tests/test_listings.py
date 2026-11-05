@@ -389,3 +389,36 @@ def test_post_form_offers_dagdeel_with_times(people):
     page = client.get("/plaatsen").text
     assert 'name="fill" value="avond" data-start="18:00" data-end="23:00"' in page
     assert ">Geven<" in page and ">Nemen<" in page
+
+
+def test_workplace_can_be_tied_to_halls(people, db):
+    from app.services import appdata
+
+    appdata.set_list(db, "halls", ["Grote Zaal", "Kleine Zaal"])
+    appdata.set_list(db, "workplaces", ["Foyer A | Grote Zaal", "Foyer B | Kleine Zaal", "Bar"])
+    names = appdata.get_list(db, "workplaces")
+    assert names == ["Foyer A", "Foyer B", "Bar"] and names[0].halls == ("Grote Zaal",)
+
+    _, client = people["sanne"]
+    page = client.get("/plaatsen").text
+    assert 'data-halls="Kleine Zaal" >Foyer B' in page and 'data-halls="" >Bar' in page
+
+    def post(hall, place):
+        return client.post(
+            "/plaatsen",
+            data={
+                "kind": "offer",
+                "day": (TODAY + timedelta(days=3)).isoformat(),
+                "code": "HG",
+                "start": "18:00",
+                "end": "22:00",
+                "hall": hall,
+                "workplace": place,
+            },
+            follow_redirects=False,
+        )
+
+    assert post("Grote Zaal", "Foyer A").status_code == 303
+    assert post("Grote Zaal", "Bar").status_code == 303  # no zalen listed: fits everywhere
+    bad = post("Grote Zaal", "Foyer B")
+    assert bad.status_code == 422 and "hoort niet bij de gekozen zaal" in bad.text

@@ -58,7 +58,7 @@
     <div class="field"><label for="fh">Zaal <span class="opt">optioneel</span></label>
       <select id="fh" name="hall"><option value="">–</option>{% for h in halls %}<option {% if form.hall == h %}selected{% endif %}>{{ h }}</option>{% endfor %}</select></div>
     <div class="field"><label for="fw">Werkplek <span class="opt">optioneel</span></label>
-      <select id="fw" name="workplace"><option value="">–</option>{% for w in workplaces %}<option {% if form.workplace == w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select></div>
+      <select id="fw" name="workplace"><option value="">–</option>{% for w in workplaces %}<option data-halls="{{ w.halls | join('|') }}" {% if form.workplace == w %}selected{% endif %}>{{ w }}</option>{% endfor %}</select></div>
   </fieldset>
 
   {# What you'd like back for a swap. Shown for Ruilen / Allebei (CSS :has), always optional. #}

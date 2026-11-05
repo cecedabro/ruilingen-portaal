@@ -46,6 +46,25 @@ function init(root) {
       form.querySelectorAll(".only-typed").forEach(function (f) { f.disabled = e.target.value !== "typed"; });
     });
   });
+  // Werkplek follows Zaal: a werkplek that lists zalen (data-halls) is only offered for those.
+  // The options are rebuilt rather than hidden, because iOS ignores hidden <option>s.
+  root.querySelectorAll("select[name=hall], select[name=offer_hall]").forEach(function (hall) {
+    var form = hall.form;
+    var place = form && form.querySelector("select[name=workplace], select[name=offer_workplace]");
+    if (!place) return;
+    var all = Array.prototype.slice.call(place.options);
+    function filter() {
+      var chosen = place.value, h = hall.value;
+      place.innerHTML = "";
+      all.forEach(function (o) {
+        var halls = o.dataset.halls ? o.dataset.halls.split("|") : [];
+        if (!h || !halls.length || halls.indexOf(h) !== -1) place.appendChild(o);
+      });
+      place.value = chosen;
+    }
+    hall.addEventListener("change", filter);
+    filter();
+  });
   // Dagdeel on "Geven": fill in typical start/end times (still editable by hand).
   root.querySelectorAll("[data-daypart-fill]").forEach(function (box) {
     box.addEventListener("change", function (e) {

@@ -2,7 +2,8 @@
 
 The zaal/werkplek lists and the planning mail template live in the database rather than in
 code: the real room names identify the employer and this repository is public. Until an
-admin sets them, generic defaults are used.
+admin sets them, generic defaults are used. A werkplek line may end in `| Zaal, Zaal`: it
+is then only offered for those zalen.
 """
 
 from sqlalchemy.orm import Session
@@ -23,6 +24,7 @@ DEFAULT_DAYPART_TIMES = {
 }
 MAX_LIST_ITEMS = 40
 MAX_ITEM_LENGTH = 60
+MAX_LINE_LENGTH = 160  # a werkplek line may also name its zalen
 
 
 def get_value(db: Session, key: str) -> str | None:
@@ -43,18 +45,34 @@ def set_value(db: Session, key: str, value: str | None) -> None:
     db.commit()
 
 
+class Workplace(str):
+    """A werkplek name that also knows which zalen it belongs to (empty = any zaal)."""
+
+    halls: tuple[str, ...] = ()
+
+    @classmethod
+    def parse(cls, line: str) -> "Workplace":
+        """'Bachfoyer | Grote Zaal, Kleine Zaal' -> Workplace('Bachfoyer') with two halls."""
+        name, _, rest = line.partition("|")
+        item = cls(" ".join(name.split()))
+        item.halls = tuple(h for h in (" ".join(p.split()) for p in rest.split(",")) if h)
+        return item
+
+
 def get_list(db: Session, key: str) -> list[str]:
     value = get_value(db, key)
-    if value is None:
-        return list(DEFAULT_LISTS[key])
-    return [line for line in value.splitlines() if line.strip()]
+    lines = DEFAULT_LISTS[key] if value is None else [x for x in value.splitlines() if x.strip()]
+    if key == "workplaces":
+        return [Workplace.parse(line) for line in lines]
+    return list(lines)
 
 
 def set_list(db: Session, key: str, values: list[str]) -> list[str]:
     """Save a list: whitespace tidied, duplicates and empty lines dropped."""
     if key not in DEFAULT_LISTS:
         raise KeyError(key)
-    cleaned = (" ".join(v.split())[:MAX_ITEM_LENGTH] for v in values if v.strip())
+    limit = MAX_LINE_LENGTH if key == "workplaces" else MAX_ITEM_LENGTH
+    cleaned = (" ".join(v.split())[:limit] for v in values if v.strip())
     unique = list(dict.fromkeys(cleaned))[:MAX_LIST_ITEMS]
     set_value(db, key, "\n".join(unique))
     return unique

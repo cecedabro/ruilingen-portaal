@@ -14,6 +14,13 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.12.1 (2026-11-05)
+- **Werkplek follows zaal:** a werkplek can be tied to zalen on Beheer (`Bachfoyer | Grote Zaal`);
+  the werkplek list then only shows the ones that fit the chosen zaal.
+- Schema change: none
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.12.0 (2026-11-05)
 - **Geven / Nemen:** the two boards are now called Geven and Nemen (tab bar, post form).
 - **Dagdeel on Geven:** pick ochtend/middag/avond and the begin/eind times are filled in (editable);

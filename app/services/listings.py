@@ -89,12 +89,13 @@ def shift_details(
         raise UserError("Vul een begin- en eindtijd in.")
     if start == end:
         raise UserError("Begin- en eindtijd zijn gelijk.")
-    return {
-        "start": start,
-        "end": end,
-        "hall": _pick(hall, appdata.get_list(db, "halls"), "zaal"),
-        "workplace": _pick(workplace, appdata.get_list(db, "workplaces"), "werkplek"),
-    }
+    chosen_hall = _pick(hall, appdata.get_list(db, "halls"), "zaal")
+    chosen_place = _pick(workplace, appdata.get_list(db, "workplaces"), "werkplek")
+    if chosen_hall and chosen_place:
+        belongs_to = next(w.halls for w in appdata.get_list(db, "workplaces") if w == chosen_place)
+        if belongs_to and chosen_hall.lower() not in (h.lower() for h in belongs_to):
+            raise UserError("Deze werkplek hoort niet bij de gekozen zaal.")
+    return {"start": start, "end": end, "hall": chosen_hall, "workplace": chosen_place}
 
 
 def _parse_day(value: str, label: str) -> date | None:

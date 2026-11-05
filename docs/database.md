@@ -122,7 +122,7 @@ public repository:
 | Key | Value |
 |---|---|
 | `halls` | zaal choices, one per line |
-| `workplaces` | werkplek choices, one per line |
+| `workplaces` | werkplek choices, one per line; a line may end in `\| Zaal, Zaal` to offer it only for those zalen |
 | `mail_subject`, `mail_body` | the planning mail template for a shift given away (absent = the default in `services/planning.py`) |
 | `mail_trade_subject`, `mail_trade_body` | the same for a real swap (two shifts) |
 | `daypart_times` | typical begin–end per dagdeel for the post form, lines like `avond 18:00-23:00` (absent = defaults in `services/appdata.py`) |

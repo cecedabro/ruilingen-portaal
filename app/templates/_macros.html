@@ -76,7 +76,7 @@
         <div class="field"><label for="oh{{ l.id }}">Zaal</label>
           <select id="oh{{ l.id }}" name="offer_hall"><option value="">–</option>{% for h in halls %}<option>{{ h }}</option>{% endfor %}</select></div>
         <div class="field"><label for="ow{{ l.id }}">Werkplek</label>
-          <select id="ow{{ l.id }}" name="offer_workplace"><option value="">–</option>{% for w in workplaces %}<option>{{ w }}</option>{% endfor %}</select></div>
+          <select id="ow{{ l.id }}" name="offer_workplace"><option value="">–</option>{% for w in workplaces %}<option data-halls="{{ w.halls | join('|') }}">{{ w }}</option>{% endfor %}</select></div>
       </div>
     </fieldset>
     <div><button class="btn primary" type="submit">{{ "Voorstel sturen" if with_date else "Aanbieden" }}</button></div>
