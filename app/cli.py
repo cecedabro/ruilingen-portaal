@@ -4,23 +4,35 @@
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli join-link
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli set-list halls "A;B;Overig"
     kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli demo-seed     (or demo-remove)
+    kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli backup        (or backups)
 
 `admin-link` creates the user if needed, makes them admin and prints a one-time login link
 (valid 60 minutes). Open it on your phone; you stay logged in there.
+`backup` writes an extra copy now (e.g. before something risky); `backups` lists the copies.
 """
 
 import sys
+from datetime import datetime
 
 from sqlalchemy import func, select
 
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import User
-from app.services import appdata, demo, invites, logins, members
+from app.services import appdata, backups, demo, invites, logins, members
 
 
 def main(argv: list[str]) -> int:
     settings = get_settings()
+    db_file, backup_dir = backups.sqlite_path(settings.database_url), settings.backup_path
+    if argv[:1] == ["backup"] and db_file and backup_dir:
+        now = datetime.now(settings.tz)
+        print(backups.snapshot(db_file, backup_dir, settings.backup_keep, now))
+        return 0
+    if argv[:1] == ["backups"] and backup_dir:
+        for path in backups.list_snapshots(backup_dir):
+            print(f"{path}  {path.stat().st_size // 1024} kB")
+        return 0
     with SessionLocal() as db:
         if argv[:1] == ["demo-seed"]:
             print(f"{demo.seed(db, settings.today())} demo-collega's aangemaakt")

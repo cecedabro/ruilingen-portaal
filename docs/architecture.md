@@ -38,7 +38,7 @@ app/
   models.py          the tables (docs/database.md)
   shifts.py          pure domain helpers: shift types, ShiftInfo, Dutch dates
   mail.py            optional SMTP sending (notifications only)
-  cli.py             server-shell commands: admin-link, join-link, set-list
+  cli.py             server-shell commands: admin-link, join-link, set-list, backup(s)
   services/          business rules, one module per area
     board.py           what the boards show: ordering, posting rank, filters, day picker
     listings.py        post / react / confirm / withdraw / remove; Deal (a completed swap)
@@ -48,6 +48,7 @@ app/
     appdata.py         runtime settings (zaal/werkplek lists, mail template)
     planning.py        the email to planning, with the admin-editable template
     housekeeping.py    deleting old data
+    backups.py         hourly copies of the SQLite file to /data/backups (48 kept)
     demo.py            made-up colleagues and shifts for the pilot, removable in one go
     transaction.py     run_write (retry on write conflicts), notification outbox
     errors.py          UserError

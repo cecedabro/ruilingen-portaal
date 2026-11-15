@@ -1,0 +1,24 @@
+# Checks the live site from outside the homelab, so it also notices when the whole cluster, the
+# home internet or the Cloudflare tunnel is down (a check inside the cluster can't).
+# A failed run makes GitHub notify whoever last edited this file (email / GitHub mobile app).
+# GitHub may delay scheduled runs by several minutes, and it pauses schedules in a public repo
+# after 60 days without commits: for a faster pager, also add a free UptimeRobot check.
+name: uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  healthz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: GET https://ruilingen.app/healthz
+        run: |
+          curl --fail --silent --show-error --max-time 15 \
+            --retry 3 --retry-delay 20 --retry-all-errors \
+            https://ruilingen.app/healthz

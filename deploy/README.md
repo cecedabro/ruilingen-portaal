@@ -90,7 +90,9 @@ When a release needs one (new env var, new secret key, different port/probe, ...
   `kubectl -n ruilingen exec deploy/ruilingen -- python -m app.cli join-link`.
 - **Logs:** `kubectl -n ruilingen logs deploy/ruilingen`.
 - **Restart:** `kubectl -n ruilingen delete pod -l app=ruilingen`.
-- **Backups:** the PVC is in Longhorn's default group: nightly backup to the NAS, 7 kept.
+- **Backups:** the app copies the database every hour (and at start) to `/data/backups`, 48
+  kept (`app/services/backups.py`). The PVC is in Longhorn's default group: nightly backup to
+  the NAS, 7 kept, plus an off-site copy. Restoring: [docs/runbook.md](../docs/runbook.md).
 - **Database peek:** the image has no `sqlite3` CLI; use
   `kubectl -n ruilingen exec deploy/ruilingen -- python -c "import sqlite3; ..."`.
   For real surgery, scale to 0 and work on a copy.

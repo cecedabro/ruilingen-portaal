@@ -6,11 +6,14 @@ Secrets (SESSION_SECRET, SMTP_PASSWORD) and anything that identifies the real em
 
 from datetime import date, datetime
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.services.backups import sqlite_path
 
 
 class Settings(BaseSettings):
@@ -52,6 +55,12 @@ class Settings(BaseSettings):
     # Swaps, listings and notifications older than this (by shift date) are deleted.
     retention_days: int = 42
 
+    # Hourly copies of the SQLite file (services/backups.py). Empty dir = "backups" next to the
+    # database file. 0 minutes turns them off.
+    backup_every_minutes: int = 60
+    backup_keep: int = 48
+    backup_dir: str = ""
+
     @model_validator(mode="after")
     def _guard_production(self) -> "Settings":
         host = urlparse(self.base_url).hostname or ""
@@ -70,6 +79,14 @@ class Settings(BaseSettings):
     def today(self) -> date:
         """Today in the venue's timezone (the server may run in UTC)."""
         return datetime.now(self.tz).date()
+
+    @property
+    def backup_path(self) -> Path | None:
+        """Where the hourly copies go, or None when the database isn't a SQLite file."""
+        if self.backup_dir:
+            return Path(self.backup_dir)
+        db_file = sqlite_path(self.database_url)
+        return db_file.parent / "backups" if db_file else None
 
     @property
     def secure_cookies(self) -> bool:

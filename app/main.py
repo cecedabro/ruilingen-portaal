@@ -1,4 +1,4 @@
-"""The FastAPI application: middleware, error pages, routes and the cleanup loop.
+"""The FastAPI application: middleware, error pages, routes and the cleanup/backup loops.
 
 Request flow: SessionMiddleware (signed cookie) → `guard` (CSRF check, security headers) →
 a route in app/web/routes → services in app/services → SQLite. See docs/architecture.md.
@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
@@ -17,6 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
 from app.db import SessionLocal
+from app.services.backups import snapshot, sqlite_path
 from app.services.housekeeping import cleanup
 from app.web.responses import APP_DIR, redirect, render
 from app.web.routes import ROUTERS
@@ -44,13 +46,30 @@ async def _housekeeping_loop() -> None:
         await asyncio.sleep(CLEANUP_EVERY_SECONDS)
 
 
+async def _backup_loop() -> None:
+    """Copy the database every hour (see services/backups.py). First copy right at start."""
+    db_file = sqlite_path(settings.database_url)
+    backup_dir = settings.backup_path
+    if not db_file or not backup_dir or settings.backup_every_minutes <= 0:
+        return
+    while True:
+        try:
+            now = datetime.now(settings.tz)
+            path = await asyncio.to_thread(snapshot, db_file, backup_dir, settings.backup_keep, now)
+            log.info("backup written: %s", path.name)
+        except Exception:
+            log.exception("backup failed")
+        await asyncio.sleep(settings.backup_every_minutes * 60)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    task = asyncio.create_task(_housekeeping_loop())
+    tasks = [asyncio.create_task(_housekeeping_loop()), asyncio.create_task(_backup_loop())]
     yield
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    for task in tasks:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

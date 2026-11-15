@@ -27,6 +27,7 @@ Dutch UI; code and docs in English. Made-up example data only in this public rep
 | [deploy/README.md](deploy/README.md) | how it runs on the homelab cluster and how releases deploy |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | local setup, conventions, how changes get merged |
 | [CHANGELOG.md](CHANGELOG.md) | releases, with schema/secret/manifest notes |
+| [docs/runbook.md](docs/runbook.md) | when something goes wrong: outage, bad release, restoring a backup |
 | [docs/open-questions.md](docs/open-questions.md) | product decisions and their defaults |
 | [docs/brief.md](docs/brief.md) | the original project brief |
 

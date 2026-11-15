@@ -14,6 +14,16 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.13.0 (2026-11-15)
+- **Hourly backups:** the app copies the database every hour (and at every start) to
+  `/data/backups`, keeping the last 48. `python -m app.cli backup` makes an extra copy,
+  `backups` lists them. Settings: `BACKUP_EVERY_MINUTES`, `BACKUP_KEEP`, `BACKUP_DIR` (optional).
+- **Uptime check:** a GitHub Actions workflow checks `/healthz` from outside every 15 minutes.
+- **Runbook:** docs/runbook.md (outage, bad release, restoring a backup, messages to colleagues).
+- Schema change: none
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.12.2 (2026-11-05)
 - **Fix:** Beheer showed the werkplekken without their zaal, so saving again wiped the link
   between werkplek and zaal. Werkplekken are now edited in one box per zaal (plus one for every
