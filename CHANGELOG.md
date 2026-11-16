@@ -14,6 +14,15 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.14.1 (2026-11-16)
+- **Backup before a schema change:** at container start, before migrations run, the app now
+  copies the database to `/data/backups/ruilingen-…-voor-migratie.db` when the release changes
+  the schema (skipped otherwise, and at most once per 15 minutes so a restarting pod can't push
+  out the hourly copies). In 0.13–0.14.0 the start-up copy was made *after* migrating.
+- Schema change: none
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.14.0 (2026-11-16)
 - **Old things go by themselves:** a shift leaves Geven/Nemen as soon as it starts (not at the
   end of the day). A completed swap leaves Mijn after the shift, once planning has been mailed;

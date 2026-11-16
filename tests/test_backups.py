@@ -1,5 +1,8 @@
 import sqlite3
+import subprocess
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from app import cli
 from app.config import get_settings
@@ -40,3 +43,26 @@ def test_backup_command(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.count("ruilingen-") == 2  # the path printed by backup + the listed copy
     assert len(backups.list_snapshots(tmp_path)) == 1
+
+
+def test_copy_before_migration_only_when_the_schema_changes(tmp_path):
+    root = Path(__file__).parent.parent
+    now = datetime(2026, 11, 20, 8, 0)
+    db_file = tmp_path / "r.db"
+    out = tmp_path / "backups"
+    assert "geen database" in backups.before_migration(db_file, out, 48, now, root)
+
+    db_file.touch()  # an empty database: every migration is pending
+    assert "kopie voor migratie" in backups.before_migration(db_file, out, 48, now, root)
+    assert len(backups.list_snapshots(out)) == 1
+    # restarting right after doesn't add copies
+    assert "recente kopie" in backups.before_migration(db_file, out, 48, now, root)
+
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=root,
+        env={"DATABASE_URL": f"sqlite:///{db_file}", "PATH": ""},
+        check=True,
+        capture_output=True,
+    )
+    assert "geen migratie" in backups.before_migration(db_file, out, 48, now, root)

@@ -13,6 +13,7 @@
 
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import func, select
 
@@ -28,6 +29,12 @@ def main(argv: list[str]) -> int:
     if argv[:1] == ["backup"] and db_file and backup_dir:
         now = datetime.now(settings.tz)
         print(backups.snapshot(db_file, backup_dir, settings.backup_keep, now))
+        return 0
+    if argv[:1] == ["backup-before-migration"]:
+        if db_file and backup_dir:
+            now = datetime.now(settings.tz)
+            root = Path(__file__).resolve().parent.parent
+            print(backups.before_migration(db_file, backup_dir, settings.backup_keep, now, root))
         return 0
     if argv[:1] == ["backups"] and backup_dir:
         for path in backups.list_snapshots(backup_dir):

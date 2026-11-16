@@ -27,7 +27,8 @@ Roll forward to the old code: `git revert <commit>`, add a CHANGELOG entry, tag 
 version (`vX.Y.Z+1`). Flux deploys it like any release. Don't move or delete existing tags.
 
 If the broken release had a **schema change**, the old code can't run on the new schema: restore
-the Longhorn backup from before the release (Longhorn UI), then release the revert.
+the `ruilingen-…-voor-migratie.db` copy the pod made just before migrating (section 3, then
+release the revert). Writes since the release are lost; the Longhorn backup is the fallback.
 
 ## 3. Data got damaged (bug, wrong click)
 
