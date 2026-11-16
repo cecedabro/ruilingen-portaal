@@ -56,3 +56,23 @@ def delete_user(db: Session, target: User) -> None:
             remove_listing(db, target, listing.id)
     db.flush()
     db.delete(target)
+
+
+# ---------------------------------------------------------------- preferences (Profiel)
+
+# Form value → stored value; "" stands for None ("until housekeeping deletes it").
+KEEP_DEALS = {"0": 0, "7": 7, "": None}
+KEEP_READ = {"1": 1, "7": 7, "": None}
+START_PAGES = {"aangeboden": "Geven", "gezocht": "Nemen", "mijn": "Mijn"}
+
+
+def form_value(days: int | None) -> str:
+    return "" if days is None else str(days)
+
+
+def set_preferences(user: User, keep_deals: str, keep_read: str, start_page: str) -> None:
+    if keep_deals not in KEEP_DEALS or keep_read not in KEEP_READ or start_page not in START_PAGES:
+        raise UserError("Kies een van de opties.")
+    user.keep_deals_days = KEEP_DEALS[keep_deals]
+    user.keep_read_days = KEEP_READ[keep_read]
+    user.start_page = start_page

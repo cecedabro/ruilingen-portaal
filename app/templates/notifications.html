@@ -1,9 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Meldingen · {{ settings.app_name }}{% endblock %}
 {% block content %}
+{% if items %}
+<form class="toolbar" method="post" action="/meldingen/wissen" data-confirm="Alle meldingen wissen?">
+  <button class="linkish" type="submit">Alles wissen</button>
+</form>
+{% endif %}
 <div class="list">
 {% for n in items %}
-  <a class="notif{{ ' unread' if n.id in unread_ids }}" href="{{ n.link }}">{{ n.text }}<span class="meta mono">{{ stamp(n.created_at) }}</span></a>
+  <div class="notif-row">
+    <a class="notif{{ ' unread' if n.id in unread_ids }}" href="{{ n.link }}">{{ n.text }}<span class="meta mono">{{ stamp(n.created_at) }}</span></a>
+    <form method="post" action="/meldingen/{{ n.id }}/wissen"><button class="notif-x" type="submit" aria-label="Melding wissen" title="Wissen">×</button></form>
+  </div>
 {% else %}
   <div class="empty">Geen meldingen.</div>
 {% endfor %}

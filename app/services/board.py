@@ -2,12 +2,21 @@
 
 import contextlib
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Kind, Listing, ListingStatus, Notification, Reaction, ReactionStatus, User
+from app.models import (
+    HiddenDeal,
+    Kind,
+    Listing,
+    ListingStatus,
+    Notification,
+    Reaction,
+    ReactionStatus,
+    User,
+)
 from app.services.listings import Deal
 from app.shifts import DAYPARTS
 
@@ -26,25 +35,30 @@ def _with_people(stmt):
 # ---------------------------------------------------------------- listings
 
 
-def open_listings(db: Session, kind: Kind, today: date) -> list[Listing]:
-    """Open listings from today on, in shift order: date, then time, then who posted first."""
+def _not_started(listings, now: datetime) -> list[Listing]:
+    """A shift leaves the boards as soon as it has begun (local time)."""
+    return [lst for lst in listings if lst.info.starts_at > now]
+
+
+def open_listings(db: Session, kind: Kind, now: datetime) -> list[Listing]:
+    """Open listings that haven't started yet, in shift order: date, time, who posted first."""
     stmt = select(Listing).where(
-        Listing.kind == kind, Listing.status == ListingStatus.OPEN, Listing.date >= today
+        Listing.kind == kind, Listing.status == ListingStatus.OPEN, Listing.date >= now.date()
     )
-    items = list(db.scalars(_with_people(stmt)))
+    items = _not_started(db.scalars(_with_people(stmt)), now)
     items.sort(key=lambda lst: (lst.date, lst.info.sort_key, lst.created_at))
     return items
 
 
-def my_open_offers(db: Session, user: User, today: date) -> list[Listing]:
+def my_open_offers(db: Session, user: User, now: datetime) -> list[Listing]:
     """The user's own open offers: shifts they can put forward in a swap proposal."""
     stmt = select(Listing).where(
         Listing.user_id == user.id,
         Listing.kind == Kind.OFFER,
         Listing.status == ListingStatus.OPEN,
-        Listing.date >= today,
+        Listing.date >= now.date(),
     )
-    items = list(db.scalars(stmt))
+    items = _not_started(db.scalars(stmt), now)
     items.sort(key=lambda lst: (lst.date, lst.info.sort_key))
     return items
 
@@ -60,20 +74,36 @@ def posting_ranks(listings: list[Listing]) -> dict[int, int]:
     return ranks
 
 
-def my_listings(db: Session, user: User, today: date) -> list[Listing]:
-    """For "Mijn": what the user posted or reacted to that's still relevant. Open ones first,
-    then completed swaps the user is part of (until housekeeping removes them)."""
+def deal_still_shown(deal: Deal, user: User, now: datetime) -> bool:
+    """A completed swap stays in "Mijn" until planning has been mailed, and then until the
+    user's preference after the (last) shift has ended: right away, a week, or until
+    housekeeping deletes it (None)."""
+    if deal.listing.mail_sent_at is None or user.keep_deals_days is None:
+        return True
+    return now < deal.ends_at + timedelta(days=user.keep_deals_days)
+
+
+def my_listings(db: Session, user: User, now: datetime) -> list[Listing]:
+    """For "Mijn": what the user posted or reacted to that's still relevant. Open ones that
+    haven't started, then completed swaps the user is part of (see deal_still_shown) and
+    hasn't cleared ("Wissen")."""
     reacted = select(Reaction.listing_id).where(Reaction.user_id == user.id)
+    hidden = select(HiddenDeal.listing_id).where(HiddenDeal.user_id == user.id)
     stmt = select(Listing).where(
         or_(Listing.user_id == user.id, Listing.id.in_(reacted)),
-        Listing.status != ListingStatus.REMOVED,
-        or_(Listing.date >= today, Listing.status == ListingStatus.TAKEN),
+        Listing.id.not_in(hidden),
+        or_(
+            and_(Listing.status == ListingStatus.OPEN, Listing.date >= now.date()),
+            Listing.status == ListingStatus.TAKEN,
+        ),
     )
-    items = [
-        lst
-        for lst in db.scalars(_with_people(stmt))
-        if lst.status == ListingStatus.OPEN or ((deal := Deal.of(lst)) and deal.involves(user))
-    ]
+    items = []
+    for lst in db.scalars(_with_people(stmt)):
+        if lst.status == ListingStatus.OPEN:
+            if lst.info.starts_at > now:
+                items.append(lst)
+        elif (deal := Deal.of(lst)) and deal.involves(user) and deal_still_shown(deal, user, now):
+            items.append(lst)
     items.sort(key=lambda lst: (lst.status == ListingStatus.TAKEN, lst.date, lst.info.sort_key))
     return items
 
@@ -176,21 +206,26 @@ class NavCounts:
     unread: int  # unread notifications (bell)
 
 
-def nav_counts(db: Session, user: User, today: date) -> NavCounts:
-    open_now = (Listing.status == ListingStatus.OPEN, Listing.date >= today)
-    per_kind = dict(
-        db.execute(
-            select(Listing.kind, func.count(Listing.id)).where(*open_now).group_by(Listing.kind)
-        ).all()
-    )
-    todo = db.scalar(
-        select(func.count(Reaction.id))
-        .join(Listing, Reaction.listing_id == Listing.id)
-        .where(Listing.user_id == user.id, Reaction.status == ReactionStatus.PENDING, *open_now)
+def nav_counts(db: Session, user: User, now: datetime) -> NavCounts:
+    stmt = select(Listing).where(Listing.status == ListingStatus.OPEN, Listing.date >= now.date())
+    upcoming = _not_started(db.scalars(stmt.options(selectinload(Listing.reactions))), now)
+    todo = sum(
+        1
+        for lst in upcoming
+        if lst.user_id == user.id
+        for r in lst.reactions
+        if r.status == ReactionStatus.PENDING
     )
     unread = db.scalar(
         select(func.count(Notification.id)).where(
-            Notification.user_id == user.id, Notification.read_at.is_(None)
+            Notification.user_id == user.id,
+            Notification.read_at.is_(None),
+            or_(Notification.about_date.is_(None), Notification.about_date >= now.date()),
         )
     )
-    return NavCounts(per_kind.get(Kind.OFFER, 0), per_kind.get(Kind.WANTED, 0), todo, unread)
+    return NavCounts(
+        sum(lst.kind == Kind.OFFER for lst in upcoming),
+        sum(lst.kind == Kind.WANTED for lst in upcoming),
+        todo,
+        unread,
+    )

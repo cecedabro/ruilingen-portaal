@@ -14,6 +14,25 @@ Releases are deployed automatically when the `vX.Y.Z` tag is pushed (see
 - New secret keys: none
 - Manifest changes: none
 
+## 0.14.0 (2026-11-16)
+- **Old things go by themselves:** a shift leaves Geven/Nemen as soon as it starts (not at the
+  end of the day). A completed swap leaves Mijn after the shift, once planning has been mailed;
+  until then it stays. **Wissen** clears a swap from your own Mijn sooner.
+- **Notifications:** clear one (×) or all (**Alles wissen**). Notifications about a shift day
+  that's over go automatically, read ones after a week (adjustable).
+- **Profiel:** the account page is now Profiel (footer link), with preferences: how long
+  completed swaps and read notifications stay, which tab the app opens on, light/dark.
+- **Help:** a public `/help` page explaining the app, linked in the footer; new users see a
+  one-time "Nieuw hier?" banner.
+- **Past midnight:** an end time before the begin time is a shift that runs into the next day,
+  shown as `+1`; the post form says so as you type. More than 12 hours is refused as a typo
+  (16:12 – 15:12).
+- Schema change: **yes** (user preference columns, `notifications.about_date`, new table
+  `hidden_deals`). A rollback needs restoring the backup from before this release
+  (`/data/backups`, see docs/runbook.md).
+- New secret keys: none
+- Manifest changes: none
+
 ## 0.13.0 (2026-11-15)
 - **Hourly backups:** the app copies the database every hour (and at every start) to
   `/data/backups`, keeping the last 48. `python -m app.cli backup` makes an extra copy,

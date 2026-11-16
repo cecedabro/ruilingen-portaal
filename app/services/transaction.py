@@ -15,6 +15,7 @@ click and a rolled-back change never sends mail.
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import TypeVar
 
 from sqlalchemy.exc import OperationalError
@@ -64,11 +65,20 @@ def queued_mails(db: Session) -> list[QueuedMail]:
     return db.info.pop("mails", [])
 
 
-def notify(db: Session, user: User, text: str, link: str = "/mijn", *, mail: bool = False) -> None:
+def notify(
+    db: Session,
+    user: User,
+    text: str,
+    link: str = "/mijn",
+    *,
+    about: date | None = None,
+    mail: bool = False,
+) -> None:
     """In-app notification (the bell). With `mail=True` also an email, if the user verified
     an address, has mails on, and mail is configured on this server. Only "someone reacted to
-    your shift" mails; everything else is bell-only, so mails stay rare and worth reading."""
-    db.add(Notification(user_id=user.id, text=text, link=link))
+    your shift" mails; everything else is bell-only, so mails stay rare and worth reading.
+    `about`: the (last) shift day it's about; the notification goes once that day is over."""
+    db.add(Notification(user_id=user.id, text=text, link=link, about_date=about))
     settings = get_settings()
     if not (mail and user.email and user.email_notifications and settings.mail_enabled):
         return

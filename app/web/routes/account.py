@@ -1,4 +1,4 @@
-"""Your own account: name, optional notification email, devices, deleting it."""
+"""Your profile ("Profiel"): name, preferences, notification email, devices, deleting it."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
@@ -22,6 +22,9 @@ def _account_page(request: Request, db, user, **ctx):
         db=db,
         user=user,
         pending_email=logins.pending_email(db, user),
+        keep_deals=members.form_value(user.keep_deals_days),
+        keep_read=members.form_value(user.keep_read_days),
+        start_pages=members.START_PAGES,
         **ctx,
     )
 
@@ -49,6 +52,35 @@ def save(
     db.commit()
     flash(request, "Opgeslagen.")
     return redirect("/account")
+
+
+@router.post("/account/voorkeuren")
+def save_preferences(
+    request: Request,
+    keep_deals: str = Form(""),
+    keep_read: str = Form(""),
+    start_page: str = Form("aangeboden"),
+    theme: str = Form(""),
+    user=Depends(require_user),
+    db=Depends(get_db),
+):
+    try:
+        members.set_preferences(user, keep_deals, keep_read, start_page)
+    except UserError as e:
+        flash(request, str(e), "error")
+        return redirect("/account#voorkeuren")
+    db.commit()
+    flash(request, "Voorkeuren opgeslagen.")
+    response = redirect("/account#voorkeuren")
+    if theme in ("light", "dark"):  # per device, like the moon button in the header
+        response.set_cookie(
+            "theme",
+            theme,
+            max_age=365 * 86400,
+            samesite="lax",
+            secure=get_settings().secure_cookies,
+        )
+    return response
 
 
 @router.post("/account/email")

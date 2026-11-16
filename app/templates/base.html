@@ -47,11 +47,20 @@
 </nav>
 {% endif %}
 <main class="wrap">
+  {% if user and not user.help_seen and request.url.path != "/help" %}
+  <div class="newhere">
+    <a href="/help">Nieuw hier? <b>Zo werkt het →</b></a>
+    <form method="post" action="/help/gezien"><input type="hidden" name="next" value="{{ request.url.path }}">
+      <button class="notif-x" type="submit" aria-label="Sluiten" title="Sluiten">×</button></form>
+  </div>
+  {% endif %}
   {% for kind, text in messages %}
   <div class="flash {{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">{{ text }}</div>
   {% endfor %}
   {% block content %}{% endblock %}
   <footer class="foot">
+    <a href="/help">Help</a>
+    {% if user %}<a href="/account">Profiel</a>{% endif %}
     <a href="/privacy">Privacy</a>
     {% if user %}
       {% if user.is_admin %}<a href="/beheer">Beheer</a>{% endif %}

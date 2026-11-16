@@ -17,17 +17,35 @@ confirmed. A proposal outside the poster's stated wish is allowed (the poster se
 """
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Kind, Listing, ListingStatus, Mode, Reaction, ReactionStatus, User, utcnow
+from app.models import (
+    HiddenDeal,
+    Kind,
+    Listing,
+    ListingStatus,
+    Mode,
+    Reaction,
+    ReactionStatus,
+    User,
+    utcnow,
+)
 from app.services import appdata
 from app.services.errors import UserError
 from app.services.transaction import notify
-from app.shifts import DAYPARTS, ShiftInfo, fmt_date, is_shift_type, is_time
+from app.shifts import (
+    DAYPARTS,
+    MAX_OVERNIGHT_HOURS,
+    ShiftInfo,
+    fmt_date,
+    is_shift_type,
+    is_time,
+    shift_minutes,
+)
 
 MAX_OPEN_LISTINGS = 30  # per person, against accidental or deliberate flooding
 MAX_NOTE = 200
@@ -89,6 +107,14 @@ def shift_details(
         raise UserError("Vul een begin- en eindtijd in.")
     if start == end:
         raise UserError("Begin- en eindtijd zijn gelijk.")
+    # An earlier end time is fine for a shift past midnight (22:30 – 01:00), but not for one
+    # that would last most of a day: that's a typo.
+    if end < start and shift_minutes(start, end) > MAX_OVERNIGHT_HOURS * 60:
+        raise UserError(
+            "De eindtijd ligt vóór de begintijd. Een dienst tot na middernacht kan "
+            "(bijv. 22:30 – 01:00), maar deze zou dan "
+            f"{shift_minutes(start, end) // 60} uur duren."
+        )
     chosen_hall = _pick(hall, appdata.get_list(db, "halls"), "zaal")
     chosen_place = _pick(workplace, appdata.get_list(db, "workplaces"), "werkplek")
     if chosen_hall and chosen_place:
@@ -322,7 +348,8 @@ def react(
         )
     else:
         text = f"{user.name} wil je {listing.shift_type}-dienst van {when} overnemen."
-    notify(db, listing.user, text, f"/mijn#l{listing.id}", mail=True)
+    last_day = max(listing.date, reaction.offer_date or listing.date)
+    notify(db, listing.user, text, f"/mijn#l{listing.id}", about=last_day, mail=True)
     return reaction
 
 
@@ -351,7 +378,12 @@ def decline(db: Session, owner: User, reaction_id: int) -> None:
     reaction.status = ReactionStatus.DECLINED
     reaction.decided_at = utcnow()
     when = fmt_date(reaction.listing.date)
-    notify(db, reaction.user, f"{owner.name} heeft je reactie op {when} afgewezen.")
+    notify(
+        db,
+        reaction.user,
+        f"{owner.name} heeft je reactie op {when} afgewezen.",
+        about=reaction.listing.date,
+    )
 
 
 def accept(db: Session, owner: User, reaction_id: int, *, today: date) -> Listing:
@@ -382,11 +414,17 @@ def accept(db: Session, owner: User, reaction_id: int, *, today: date) -> Listin
     for other in listing.pending_reactions:
         other.status = ReactionStatus.EXPIRED
         other.decided_at = now
-        notify(db, other.user, f"De dienst van {when} is aan iemand anders gegeven.")
+        notify(
+            db,
+            other.user,
+            f"De dienst van {when} is aan iemand anders gegeven.",
+            about=listing.date,
+        )
     notify(
         db,
         reaction.user,
         f"{owner.name} heeft bevestigd: de ruil van {when} is rond. Mail planning vanuit Mijn.",
+        about=max(listing.date, reaction.offer_date or listing.date),
     )
     # A shift the reactor picked from their own offers is now used in this swap: take it down.
     picked = db.get(Listing, reaction.offer_listing_id) if reaction.offer_listing_id else None
@@ -406,7 +444,7 @@ def _close(db: Session, listing: Listing, reason: str) -> None:
     for other in listing.pending_reactions:
         other.status = ReactionStatus.EXPIRED
         other.decided_at = now
-        notify(db, other.user, reason)
+        notify(db, other.user, reason, about=listing.date)
 
 
 def remove_listing(db: Session, owner: User, listing_id: int) -> None:
@@ -426,7 +464,12 @@ def admin_remove_listing(db: Session, admin: User, listing_id: int) -> None:
     when = fmt_date(listing.date)
     _close(db, listing, f"De dienst van {when} is door een beheerder weggehaald.")
     if listing.user_id != admin.id:
-        notify(db, listing.user, f"Een beheerder heeft je dienst van {when} weggehaald.")
+        notify(
+            db,
+            listing.user,
+            f"Een beheerder heeft je dienst van {when} weggehaald.",
+            about=listing.date,
+        )
 
 
 # ---------------------------------------------------------------- completed swaps
@@ -457,6 +500,22 @@ class Deal:
     def involves(self, user: User) -> bool:
         return user.id in (self.giver.id, self.taker.id)
 
+    @property
+    def ends_at(self) -> datetime:
+        """When the last shift of the swap is over (local time)."""
+        shifts = [self.shift] + ([self.return_shift] if self.return_shift else [])
+        return max(s.ends_at for s in shifts)
+
+
+def hide_deal(db: Session, user: User, listing_id: int) -> None:
+    """ "Wissen": clear a completed swap from your own "Mijn" (the other still sees it)."""
+    listing = db.get(Listing, listing_id)
+    deal = Deal.of(listing) if listing and listing.status == ListingStatus.TAKEN else None
+    if deal is None or not deal.involves(user):
+        raise UserError("Ruil niet gevonden.")
+    if db.get(HiddenDeal, (user.id, listing.id)) is None:
+        db.add(HiddenDeal(user_id=user.id, listing_id=listing.id))
+
 
 def mark_mail_sent(db: Session, user: User, listing_id: int) -> None:
     """One of the two says "I mailed planning"; the other one is told."""
@@ -469,4 +528,9 @@ def mark_mail_sent(db: Session, user: User, listing_id: int) -> None:
         listing.mail_sent_by_id = user.id
         other = deal.taker if user.id == deal.giver.id else deal.giver
         when = fmt_date(listing.date)
-        notify(db, other, f"{user.name} heeft de ruil van {when} naar planning gemaild.")
+        notify(
+            db,
+            other,
+            f"{user.name} heeft de ruil van {when} naar planning gemaild.",
+            about=deal.ends_at.date(),
+        )

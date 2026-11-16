@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 # Letters in the order they happen within the shift: HG = bar first, cloakroom after the break.
 PARTS = {
@@ -19,6 +19,12 @@ SHIFT_TYPES = ["H", "HG", "GH", "G", "CGH", "CHG", "CH", "R", "PH", "PHG", "PGH"
 DAYPARTS = ["ochtend", "middag", "avond"]
 
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+# An end time before the begin time means the shift runs past midnight (22:30 – 01:00). Longer
+# than this it's almost certainly a typo (16:12 – 15:12 would be 23 hours), so it's refused.
+MAX_OVERNIGHT_HOURS = 12
+# Where a bare dagdeel (no times) starts, for sorting and for when it leaves the board.
+DAYPART_START = {"ochtend": "09:00", "middag": "13:00", "avond": "18:00"}
 
 DAYS = ["ma", "di", "wo", "do", "vr", "za", "zo"]
 DAYS_LONG = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
@@ -45,6 +51,12 @@ def is_shift_type(code: str) -> bool:
 
 def is_time(value: str) -> bool:
     return bool(_TIME.match(value or ""))
+
+
+def shift_minutes(start: str, end: str) -> int:
+    """Length of a shift in minutes; an end before the begin is on the next day."""
+    minutes = (int(end[:2]) * 60 + int(end[3:])) - (int(start[:2]) * 60 + int(start[3:]))
+    return minutes if minutes > 0 else minutes + 24 * 60
 
 
 def explain(code: str) -> str:
@@ -89,11 +101,31 @@ class ShiftInfo:
     workplace: str | None = None
 
     @property
+    def overnight(self) -> bool:
+        """Ends after midnight, on the day after `day`."""
+        return bool(self.start and self.end and self.end < self.start)
+
+    @property
     def when(self) -> str:
-        """'19:10–22:30', 'avond' or ''."""
+        """'19:10–22:30', '22:30–01:00 (+1)', 'avond' or ''."""
         if self.start and self.end:
-            return f"{self.start}–{self.end}"
+            return f"{self.start}–{self.end}" + (" (+1)" if self.overnight else "")
         return self.daypart or ""
+
+    @property
+    def starts_at(self) -> datetime:
+        """Local start; a bare dagdeel at its usual start, nothing at all at the end of the day."""
+        if is_time(self.sort_key):
+            return datetime.combine(self.day, time.fromisoformat(self.sort_key))
+        return datetime.combine(self.day + timedelta(days=1), time())
+
+    @property
+    def ends_at(self) -> datetime:
+        """Local end (the next day for an overnight shift); without times, the end of the day."""
+        if self.start and self.end:
+            end_day = self.day + timedelta(days=1) if self.overnight else self.day
+            return datetime.combine(end_day, time.fromisoformat(self.end))
+        return datetime.combine(self.day + timedelta(days=1), time())
 
     @property
     def part_of_day(self) -> str | None:
@@ -106,9 +138,7 @@ class ShiftInfo:
     @property
     def sort_key(self) -> str:
         """Within a day: by start time; a bare dagdeel sorts at its usual start."""
-        return self.start or {"ochtend": "09:00", "middag": "13:00", "avond": "18:00"}.get(
-            self.daypart or "", "99:99"
-        )
+        return self.start or DAYPART_START.get(self.daypart or "", "99:99")
 
     @property
     def where(self) -> str:

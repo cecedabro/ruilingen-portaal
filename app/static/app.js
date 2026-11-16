@@ -74,6 +74,29 @@ function init(root) {
       form.elements.end.value = e.target.dataset.end;
     });
   });
+  // An end time before the begin time: say it runs past midnight (or that it looks like a typo;
+  // the server refuses more than 12 hours either way).
+  root.querySelectorAll('input[type=time][name$="end"]').forEach(function (endEl) {
+    var form = endEl.form;
+    var startEl = form && form.elements[endEl.name.replace(/end$/, "start")];
+    if (!startEl) return;
+    var hint = document.createElement("p");
+    hint.className = "meta overnight-hint";
+    hint.setAttribute("aria-live", "polite");
+    endEl.closest(".field").parentNode.after(hint);
+    function update() {
+      var s = startEl.value, e = endEl.value, text = "";
+      if (s && e && e < s) {
+        var mins = (+e.slice(0, 2) * 60 + +e.slice(3)) - (+s.slice(0, 2) * 60 + +s.slice(3)) + 1440;
+        text = mins <= 720 ? "Loopt door tot de volgende dag." : "De eindtijd ligt vóór de begintijd.";
+      }
+      hint.textContent = text;
+      hint.hidden = !text;
+    }
+    form.addEventListener("input", update);
+    form.addEventListener("change", update);
+    update();
+  });
   // Geven / Nemen: switch in place. The hidden variant's fieldsets are disabled, so the
   // browser neither validates nor submits them.
   root.querySelectorAll("form[data-kind-switch]").forEach(function (form) {

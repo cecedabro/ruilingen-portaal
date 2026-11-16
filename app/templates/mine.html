@@ -49,6 +49,10 @@
       </details>
       <p class="meta">Eén van jullie verstuurt hem, vanuit je eigen mail. Tik daarna op "Verstuurd".</p>
       {% endif %}
+      <form class="wipe" method="post" action="/listings/{{ l.id }}/wissen"
+        data-confirm="{{ 'Uit je lijst wissen?' if l.mail_sent_at else 'Planning is nog niet gemaild. Toch uit je lijst wissen?' }}">
+        <button class="linkish" type="submit">Wissen</button>
+      </form>
     </div>
   </details>
   {% elif l.user_id == user.id %}

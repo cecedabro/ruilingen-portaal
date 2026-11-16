@@ -22,6 +22,7 @@ users ─┬─< listings ─┬─< reactions >── users
        │             └── mail_sent_by ──> users
        ├─< reactions
        ├─< notifications
+       ├─< hidden_deals >── listings
        ├─< login_tokens
        └─< invite_links (created_by)
 app_settings  (key/value, no relations)
@@ -39,6 +40,10 @@ app_settings  (key/value, no relations)
 | `is_active` | inactive users can't log in |
 | `session_epoch` | bumped by "log out everywhere"; cookies with an older value stop working |
 | `created_at` | when the account was made (we don't record logins) |
+| `keep_deals_days` | Profiel: days a completed swap stays in Mijn after its shift ended (0 default, 7, empty = until housekeeping); always shown while planning isn't mailed |
+| `keep_read_days` | Profiel: days before read notifications are deleted (1, 7 default, empty = until housekeeping) |
+| `start_page` | Profiel: where `/` lands: `aangeboden` (Geven), `gezocht` (Nemen) or `mijn` |
+| `help_seen` | false until the "Nieuw hier?" banner was opened or closed |
 
 ### `listings`: a shift on a board
 
@@ -94,7 +99,13 @@ gives to the poster, and the email to planning lists both.
 ### `notifications`: the bell
 
 `user_id`, `text`, `link` (where tapping it goes), `created_at`, `read_at` (set when
-`/meldingen` is opened).
+`/meldingen` is opened), `about_date` (the last shift day it's about; empty on older rows). The
+user can delete them one by one or all at once.
+
+### `hidden_deals`: swaps cleared from Mijn
+
+`user_id`, `listing_id`: a completed swap that this user cleared ("Wissen"). Only hides it for
+them; goes when the listing is deleted.
 
 ### `login_tokens`: one-time links
 
@@ -130,10 +141,14 @@ public repository:
 
 ## Retention
 
+Shifts leave Geven/Nemen (and Mijn, while still open) as soon as they start, local time; a shift
+whose end is before its start runs past midnight (max 12 hours). That's a filter, not a delete.
+
 `services/housekeeping.py` runs every 6 hours and deletes:
 - listings whose date is more than `RETENTION_DAYS` (default 42) ago, with their reactions;
 - removed listings closed more than `RETENTION_DAYS` ago;
-- notifications older than `RETENTION_DAYS`;
+- notifications older than `RETENTION_DAYS`, about a shift day that's over, or read longer
+  ago than the user's `keep_read_days` (opening `/meldingen` applies the same rules at once);
 - login tokens that expired more than a day ago.
 
 ## Looking at the live data

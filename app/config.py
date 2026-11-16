@@ -80,6 +80,10 @@ class Settings(BaseSettings):
         """Today in the venue's timezone (the server may run in UTC)."""
         return datetime.now(self.tz).date()
 
+    def now(self) -> datetime:
+        """Local wall-clock time without tzinfo, comparable with ShiftInfo.starts_at/ends_at."""
+        return datetime.now(self.tz).replace(tzinfo=None)
+
     @property
     def backup_path(self) -> Path | None:
         """Where the hourly copies go, or None when the database isn't a SQLite file."""

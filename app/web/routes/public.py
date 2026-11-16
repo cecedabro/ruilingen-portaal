@@ -7,7 +7,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.models import User
 from app.web.responses import redirect, render, safe_next
-from app.web.session import current_user
+from app.web.session import current_user, require_user
 
 router = APIRouter()
 
@@ -21,7 +21,25 @@ def healthz(db: Session = Depends(get_db)):
 
 @router.get("/")
 def home(user: User | None = Depends(current_user)):
-    return redirect("/aangeboden" if user else "/login")
+    return redirect(f"/{user.start_page}" if user else "/login")
+
+
+@router.get("/help", response_class=HTMLResponse)
+def help_page(request: Request, user: User | None = Depends(current_user), db=Depends(get_db)):
+    """How the app works. Public, so the join page can link to it. Reading it also hides the
+    "Nieuw hier?" banner."""
+    if user is not None and not user.help_seen:
+        user.help_seen = True
+        db.commit()
+    return render(request, "help.html", db=db, user=user)
+
+
+@router.post("/help/gezien")
+def help_seen(next: str = Form(""), user=Depends(require_user), db=Depends(get_db)):
+    """Closes the "Nieuw hier?" banner for good."""
+    user.help_seen = True
+    db.commit()
+    return redirect(safe_next(next, "/"))
 
 
 @router.get("/privacy", response_class=HTMLResponse)

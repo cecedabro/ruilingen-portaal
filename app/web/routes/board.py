@@ -4,15 +4,15 @@ from dataclasses import replace
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
 from app.models import Kind, Notification, User, utcnow
-from app.services import appdata, board, planning
+from app.services import appdata, board, housekeeping, planning
 from app.services.listings import Deal
-from app.web.responses import render
+from app.web.responses import flash, redirect, render
 from app.web.session import require_user
 
 router = APIRouter()
@@ -20,7 +20,8 @@ router = APIRouter()
 
 def _board(request: Request, db: Session, user: User, kind: Kind):
     settings = get_settings()
-    today = settings.today()
+    now = settings.now()
+    today = now.date()
     q = request.query_params
     flt = board.BoardFilter.parse(
         q.get("soort", ""),
@@ -29,7 +30,7 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         q.get("vrij", ""),
         q.getlist("dag"),
     )
-    everything = board.open_listings(db, kind, today)
+    everything = board.open_listings(db, kind, now)
     ranks = board.posting_ranks(everything)
     posted_order = q.get("volgorde") == "geplaatst"
     by_posting = sorted(everything, key=lambda lst: (lst.created_at, lst.id))
@@ -49,7 +50,7 @@ def _board(request: Request, db: Session, user: User, kind: Kind):
         weeks=board.day_choices(today, everything, flt.dagen, settings.roster_release_weekday),
         halls=appdata.get_list(db, "halls"),
         workplaces=appdata.get_list(db, "workplaces"),
-        my_offers=board.my_open_offers(db, user, today),
+        my_offers=board.my_open_offers(db, user, now),
         here=request.url.path + (f"?{request.url.query}" if request.url.query else ""),
     )
 
@@ -69,8 +70,9 @@ def mine(request: Request, user=Depends(require_user), db=Depends(get_db)):
     """Your open listings (with reactions to confirm), your reactions, and completed swaps
     with the ready-made email to planning."""
     settings = get_settings()
+    now = settings.now()
     items = []
-    for listing in board.my_listings(db, user, settings.today()):
+    for listing in board.my_listings(db, user, now):
         deal = Deal.of(listing)
         mail = planning.compose(db, settings, deal) if deal else None
         items.append((listing, deal, mail))
@@ -81,13 +83,15 @@ def mine(request: Request, user=Depends(require_user), db=Depends(get_db)):
         user=user,
         tab="mijn",
         items=items,
-        my_offers=board.my_open_offers(db, user, settings.today()),
+        my_offers=board.my_open_offers(db, user, now),
     )
 
 
 @router.get("/meldingen", response_class=HTMLResponse)
 def notifications(request: Request, user=Depends(require_user), db=Depends(get_db)):
     """Shows the latest notifications and marks them read (so never prefetch this page)."""
+    now = get_settings().now()
+    housekeeping.clear_old_notifications(db, user, now)
     items = list(
         db.scalars(
             select(Notification)
@@ -98,7 +102,7 @@ def notifications(request: Request, user=Depends(require_user), db=Depends(get_d
     )
     unread_ids = {n.id for n in items if n.read_at is None}
     # Opening this page marks everything read, so the bell shows 0 right away.
-    nav = replace(board.nav_counts(db, user, get_settings().today()), unread=0)
+    nav = replace(board.nav_counts(db, user, now), unread=0)
     response = render(
         request,
         "notifications.html",
@@ -114,5 +118,25 @@ def notifications(request: Request, user=Depends(require_user), db=Depends(get_d
             .where(Notification.user_id == user.id, Notification.read_at.is_(None))
             .values(read_at=utcnow())
         )
-        db.commit()
+    db.commit()
     return response
+
+
+@router.post("/meldingen/wissen")
+def clear_notifications(request: Request, user=Depends(require_user), db=Depends(get_db)):
+    """ "Alles wissen": deletes all of the user's notifications."""
+    db.execute(delete(Notification).where(Notification.user_id == user.id))
+    db.commit()
+    flash(request, "Meldingen gewist.")
+    return redirect("/meldingen")
+
+
+@router.post("/meldingen/{notification_id}/wissen")
+def clear_notification(notification_id: int, user=Depends(require_user), db=Depends(get_db)):
+    db.execute(
+        delete(Notification).where(
+            Notification.id == notification_id, Notification.user_id == user.id
+        )
+    )
+    db.commit()
+    return redirect("/meldingen")

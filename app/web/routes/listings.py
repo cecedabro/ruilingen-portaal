@@ -261,3 +261,16 @@ def mail_sent(
         ok="Genoteerd.",
         go_to=f"/mijn#l{listing_id}",
     )
+
+
+@router.post("/listings/{listing_id}/wissen")
+def hide_deal(
+    request: Request,
+    background: BackgroundTasks,
+    listing_id: int,
+    user=Depends(require_user),
+    db=Depends(get_db),
+):
+    return run_action(
+        request, db, background, listings.hide_deal, user, listing_id, ok="Gewist.", go_to="/mijn"
+    )

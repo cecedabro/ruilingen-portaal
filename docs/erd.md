@@ -20,6 +20,10 @@ erDiagram
         BOOLEAN email_notifications
         INTEGER session_epoch
         DATETIME created_at
+        INTEGER keep_deals_days "nullable"
+        INTEGER keep_read_days "nullable"
+        VARCHAR start_page
+        BOOLEAN help_seen
     }
     invite_links {
         INTEGER id PK
@@ -73,6 +77,11 @@ erDiagram
         VARCHAR link
         DATETIME created_at
         DATETIME read_at "nullable"
+        DATE about_date "nullable"
+    }
+    hidden_deals {
+        INTEGER user_id PK
+        INTEGER listing_id PK
     }
     reactions {
         INTEGER id PK
@@ -95,6 +104,8 @@ erDiagram
     users |o--o{ listings : "mail_sent_by_id"
     users ||--o{ login_tokens : "user_id"
     users ||--o{ notifications : "user_id"
+    users ||--o{ hidden_deals : "user_id"
+    listings ||--o{ hidden_deals : "listing_id"
     listings ||--o{ reactions : "listing_id"
     users ||--o{ reactions : "user_id"
     listings |o--o{ reactions : "offer_listing_id"

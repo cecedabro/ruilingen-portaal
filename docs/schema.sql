@@ -19,6 +19,10 @@ CREATE TABLE users (
 	email_notifications BOOLEAN NOT NULL, 
 	session_epoch INTEGER NOT NULL, 
 	created_at DATETIME NOT NULL, 
+	keep_deals_days INTEGER DEFAULT '0', 
+	keep_read_days INTEGER DEFAULT '7', 
+	start_page VARCHAR(12) DEFAULT 'aangeboden' NOT NULL, 
+	help_seen BOOLEAN DEFAULT 0 NOT NULL, 
 	PRIMARY KEY (id), 
 	UNIQUE (email)
 );
@@ -93,11 +97,20 @@ CREATE TABLE notifications (
 	link VARCHAR(200) NOT NULL, 
 	created_at DATETIME NOT NULL, 
 	read_at DATETIME, 
+	about_date DATE, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
 CREATE INDEX ix_notifications_user_id ON notifications (user_id);
+
+CREATE TABLE hidden_deals (
+	user_id INTEGER NOT NULL, 
+	listing_id INTEGER NOT NULL, 
+	PRIMARY KEY (user_id, listing_id), 
+	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+	FOREIGN KEY(listing_id) REFERENCES listings (id) ON DELETE CASCADE
+);
 
 CREATE TABLE reactions (
 	id INTEGER NOT NULL, 

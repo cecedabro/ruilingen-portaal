@@ -91,6 +91,16 @@ class User(Base):
     # Bumped on "log out everywhere": every cookie with an older epoch stops working.
     session_epoch: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    # Preferences (Profiel). Days to keep showing a completed swap after the shift ended
+    # (empty = until housekeeping deletes it), and days to keep read notifications (empty =
+    # until housekeeping). `start_page` is where "/" (and so the app icon) lands.
+    keep_deals_days: Mapped[int | None] = mapped_column(Integer, default=0, server_default="0")
+    keep_read_days: Mapped[int | None] = mapped_column(Integer, default=7, server_default="7")
+    start_page: Mapped[str] = mapped_column(
+        String(12), default="aangeboden", server_default="aangeboden"
+    )
+    # False until the "Nieuw hier?" banner has been opened or closed.
+    help_seen: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
 
     @property
     def first_name(self) -> str:
@@ -286,6 +296,22 @@ class Notification(Base):
     link: Mapped[str] = mapped_column(String(200), default="/mijn")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     read_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # The day of the shift it's about: once that day is over the notification goes too.
+    about_date: Mapped[Day | None] = mapped_column(Date)
+
+
+class HiddenDeal(Base):
+    """A completed swap one of the two cleared from their "Mijn" ("Wissen"). The other still
+    sees it; housekeeping deletes it together with the listing."""
+
+    __tablename__ = "hidden_deals"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    listing_id: Mapped[int] = mapped_column(
+        ForeignKey("listings.id", ondelete="CASCADE"), primary_key=True
+    )
 
 
 class AppSetting(Base):

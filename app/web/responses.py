@@ -94,7 +94,7 @@ def render(
         messages=[] if request.headers.get("x-prefetch") else request.session.pop("flash", []),
     )
     if user is not None and db is not None:
-        ctx.setdefault("nav", board.nav_counts(db, user, settings.today()))
+        ctx.setdefault("nav", board.nav_counts(db, user, settings.now()))
     return templates.TemplateResponse(request, template, ctx, status_code=status_code)
 
 

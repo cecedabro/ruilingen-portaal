@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Account · {{ settings.app_name }}{% endblock %}
+{% block title %}Profiel · {{ settings.app_name }}{% endblock %}
 {% block content %}
 {% if device_link %}
 <div class="form">
@@ -19,6 +19,35 @@
   <label class="check"><input type="checkbox" name="email_notifications" value="true" {% if user.email_notifications %}checked{% endif %}>
     <span>Mail me als iemand op mijn dienst reageert</span></label>
   {% endif %}
+  <div><button class="btn primary" type="submit">Opslaan</button></div>
+</form>
+
+<form class="form" method="post" action="/account/voorkeuren" id="voorkeuren">
+  <h2>Voorkeuren</h2>
+  <fieldset class="field">
+    <legend>Afgeronde ruilen in Mijn tonen</legend>
+    {% for value, label in [("0", "Tot na de dienst"), ("7", "Nog een week na de dienst"), ("", "Tot ze vanzelf verdwijnen (na " ~ (settings.retention_days // 7) ~ " weken)")] %}
+    <label class="check"><input type="radio" name="keep_deals" value="{{ value }}" {% if keep_deals == value %}checked{% endif %}><span>{{ label }}</span></label>
+    {% endfor %}
+    <p class="meta">Zolang planning niet gemaild is, blijft een ruil altijd staan.</p>
+  </fieldset>
+  <fieldset class="field">
+    <legend>Gelezen meldingen wissen</legend>
+    {% for value, label in [("1", "Na een dag"), ("7", "Na een week"), ("", "Niet (na " ~ (settings.retention_days // 7) ~ " weken vanzelf)")] %}
+    <label class="check"><input type="radio" name="keep_read" value="{{ value }}" {% if keep_read == value %}checked{% endif %}><span>{{ label }}</span></label>
+    {% endfor %}
+  </fieldset>
+  <fieldset class="field">
+    <legend>De app opent op</legend>
+    {% for value, label in start_pages.items() %}
+    <label class="check"><input type="radio" name="start_page" value="{{ value }}" {% if user.start_page == value %}checked{% endif %}><span>{{ label }}</span></label>
+    {% endfor %}
+  </fieldset>
+  <fieldset class="field">
+    <legend>Thema op dit apparaat</legend>
+    <label class="check"><input type="radio" name="theme" value="light" {% if theme != "dark" %}checked{% endif %}><span>Licht</span></label>
+    <label class="check"><input type="radio" name="theme" value="dark" {% if theme == "dark" %}checked{% endif %}><span>Donker</span></label>
+  </fieldset>
   <div><button class="btn primary" type="submit">Opslaan</button></div>
 </form>
 

@@ -217,6 +217,8 @@ input[type=checkbox]{width:18px;height:18px;min-height:0;accent-color:var(--acce
 
 .check{display:flex;gap:10px;align-items:flex-start}
 .check input{margin-top:2px;width:auto}
+.field>label.check{font-size:15px;font-weight:400;color:inherit;align-items:center;padding:0}
+.field>label.check input{margin:0}
 .copyrow{display:flex;gap:8px}
 .copyrow input[readonly]{font:13px var(--f-mono)}
 
@@ -261,6 +263,18 @@ input[type=checkbox]{width:18px;height:18px;min-height:0;accent-color:var(--acce
   color:inherit;text-decoration:none;font-size:14px}
 .notif.unread{box-shadow:inset 3px 0 0 var(--accent)}
 .notif .meta{display:block;margin-top:2px}
+.notif-row{position:relative}
+.notif-row .notif{padding-right:48px}
+.notif-x{position:absolute;top:2px;right:2px;width:44px;height:44px;background:none;border:0;
+  color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
+.notif-x:hover{color:var(--text)}
+.newhere{position:relative;margin-top:12px;background:var(--accent-soft);
+  border:1px solid var(--accent-line);border-radius:var(--r)}
+.newhere a{display:block;padding:12px 48px 12px 14px;color:inherit;text-decoration:none;font-size:14px}
+.newhere b{color:var(--accent)}
+.plus1{font-size:.7em;font-weight:700;margin-left:1px}
+form.wipe{margin-top:8px}
+.toolbar{display:flex;justify-content:flex-end;margin-top:8px}
 
 /* ---------------------------------------------------------------- beheer */
 .table{width:100%;border-collapse:collapse;font-size:14px}

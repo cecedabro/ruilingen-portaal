@@ -84,3 +84,9 @@ def test_upgrade_from_first_release_keeps_data(tmp_path):
     assert con.execute("select count(*) from users").fetchone()[0] == 2
     assert con.execute("select count(*) from listings").fetchone()[0] == 3
     assert con.execute("select count(*) from reactions").fetchone()[0] == 1
+    # 0.14.0: existing users get the default preferences and see the "Nieuw hier?" banner once
+    prefs = con.execute(
+        "select keep_deals_days, keep_read_days, start_page, help_seen from users"
+    ).fetchall()
+    assert set(prefs) == {(0, 7, "aangeboden", 0)}
+    assert con.execute("select count(*) from hidden_deals").fetchone()[0] == 0

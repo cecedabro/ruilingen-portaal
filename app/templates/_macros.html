@@ -12,7 +12,7 @@
 
 {# "19:10 – 22:30", or the dagdeel of a wanted request. #}
 {% macro time_label(info) -%}
-{%- if info.start %}{{ info.start }} – {{ info.end }}{% elif info.daypart %}{{ info.daypart }}{% endif -%}
+{%- if info.start %}{{ info.start }} – {{ info.end }}{% if info.overnight %}<sup class="plus1" title="tot de volgende dag">+1</sup>{% endif %}{% elif info.daypart %}{{ info.daypart }}{% endif -%}
 {%- endmacro %}
 
 {# The always-visible first line of a card. `swap` = "trade" / "both" adds the orange ruil label. #}
